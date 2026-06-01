@@ -77,40 +77,38 @@ theorem gram_offdiag_sq {p q : Fin n} (hpq : p ≠ q) :
 
 /-- **Keystone (diagonal).** The centered diagonal Gram entry
 `(WᵀW)_{pp} − n σ² = Σ_k (R_kp² − σ²)` has second moment `n·(m₄ − σ⁴)`. With `σ² = 1/n`
-and bounded `m₄` this is `O(1/n)`. Needs the fourth moment and a centering step. -/
+and bounded `m₄` this is `O(1/n)`. An instance of the centered square-sum engine with
+`U k = R_kp` (the `k`-th entry of column `p`), independent across rows. -/
 theorem gram_diag_centered_sq {p : Fin n} :
     ∫ ω, (∑ k, ((Ens.R k ω p) ^ 2 - σ2)) ^ 2 ∂μ = (n : ℝ) * (m4 - σ2 ^ 2) := by
-  have hX_indep : iIndepFun (fun k ω => (Ens.R k ω p) ^ 2 - σ2) μ :=
-    Ens.indep.comp (fun _ (v : Fin n → ℝ) => (v p) ^ 2 - σ2)
-      (fun _ => by fun_prop)
+  have hU_indep : iIndepFun (fun k ω => Ens.R k ω p) μ :=
+    Ens.indep.comp (fun _ (v : Fin n → ℝ) => v p) (fun _ => measurable_pi_apply p)
   have hpair : Set.Pairwise (↑(Finset.univ : Finset (Fin n)))
-      fun i j => IndepFun (fun ω => (Ens.R i ω p) ^ 2 - σ2)
-                          (fun ω => (Ens.R j ω p) ^ 2 - σ2) μ :=
-    fun i _ j _ hij => hX_indep.indepFun hij
-  have hmem : ∀ k ∈ (Finset.univ : Finset (Fin n)),
-      MemLp (fun ω => (Ens.R k ω p) ^ 2 - σ2) 2 μ :=
-    fun k _ => (Ens.entry_sq_memLp k p).sub (memLp_const σ2)
-  have hmean : ∀ k ∈ (Finset.univ : Finset (Fin n)),
-      μ[fun ω => (Ens.R k ω p) ^ 2 - σ2] = 0 := by
-    intro k _
-    rw [integral_sub ((Ens.entry_sq_memLp k p).integrable one_le_two) (integrable_const σ2),
-      integral_const, Ens.entry_sq k p]
-    simp
-  have hXsq : ∀ k ∈ (Finset.univ : Finset (Fin n)),
-      ∫ ω, ((Ens.R k ω p) ^ 2 - σ2) ^ 2 ∂μ = m4 - σ2 ^ 2 := by
-    intro k hk
-    -- E[X_k²] = Var[X_k] = Var[R_kp²] = E[R_kp⁴] − (E[R_kp²])² = m₄ − σ⁴
-    have haem : AEStronglyMeasurable (fun ω => (Ens.R k ω p) ^ 2) μ :=
-      (Ens.entry_sq_memLp k p).aestronglyMeasurable
-    have hpow : (fun ω => (Ens.R k ω p) ^ 2) ^ 2 = fun ω => (Ens.R k ω p) ^ 4 := by
-      funext ω; simp only [Pi.pow_apply]; ring
-    rw [show (∫ ω, ((Ens.R k ω p) ^ 2 - σ2) ^ 2 ∂μ)
-          = Var[fun ω => (Ens.R k ω p) ^ 2 - σ2; μ] from
-        (variance_of_integral_eq_zero (hmem k hk).aemeasurable (hmean k hk)).symm,
-      variance_sub_const haem, variance_eq_sub (Ens.entry_sq_memLp k p), Ens.entry_sq k p, hpow,
-      Ens.entry_four k p]
-  rw [sq_integral_sum_eq hmem hmean hpair, Finset.sum_congr rfl hXsq,
-    Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+      fun i j => IndepFun (fun ω => Ens.R i ω p) (fun ω => Ens.R j ω p) μ :=
+    fun i _ j _ hij => hU_indep.indepFun hij
+  rw [centered_sq_sum_eq (fun k _ => Ens.entry_sq_memLp k p) hpair
+      (fun k _ => Ens.entry_sq k p) (fun k _ => Ens.entry_four k p),
+    Finset.card_univ, Fintype.card_fin]
+
+/-- **Rank-1 subspace restriction.** Along a single direction `v`, the quadratic form
+`vᵀWᵀWv = ‖Wv‖² = Σ_k ⟨row_k, v⟩²` is a sum over independent rows, so its centered second
+moment is `n·(β_v − α_v²)`, where `α_v = E[⟨row_k,v⟩²]` and `β_v = E[⟨row_k,v⟩⁴]` are the
+projected moments. With `α_v = σ²‖v‖²` this bounds `E[(vᵀ(WᵀW)v − n α_v)²]`, the isotropy
+deviation along `v` — the `d_V = 1` case of `isotropy_at_init`. The projected moments are
+supplied as hypotheses (they are within-row joint moments of the entries). -/
+theorem gram_rank1_centered_sq (v : Fin n → ℝ) {αv βv : ℝ}
+    (hmemSq : ∀ k, MemLp (fun ω => (∑ p, Ens.R k ω p * v p) ^ 2) 2 μ)
+    (hsq : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 2] = αv)
+    (hfour : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 4] = βv) :
+    ∫ ω, (∑ k, ((∑ p, Ens.R k ω p * v p) ^ 2 - αv)) ^ 2 ∂μ = (n : ℝ) * (βv - αv ^ 2) := by
+  have hU_indep : iIndepFun (fun k ω => ∑ p, Ens.R k ω p * v p) μ :=
+    Ens.indep.comp (fun _ (r : Fin n → ℝ) => ∑ p, r p * v p) (fun _ => by fun_prop)
+  have hpair : Set.Pairwise (↑(Finset.univ : Finset (Fin n)))
+      fun i j => IndepFun (fun ω => ∑ p, Ens.R i ω p * v p)
+                          (fun ω => ∑ p, Ens.R j ω p * v p) μ :=
+    fun i _ j _ hij => hU_indep.indepFun hij
+  rw [centered_sq_sum_eq (fun k _ => hmemSq k) hpair (fun k _ => hsq k) (fun k _ => hfour k),
+    Finset.card_univ, Fintype.card_fin]
 
 end RandomMatrixEnsemble
 

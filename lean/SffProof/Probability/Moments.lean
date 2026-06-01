@@ -51,4 +51,44 @@ theorem sq_integral_sum_eq {s : Finset ι} {X : ι → Ω → ℝ}
   refine Finset.sum_congr rfl fun i hi => ?_
   exact variance_of_integral_eq_zero (hmem i hi).aemeasurable (hmean i hi)
 
+/-- **Centered square-sum engine.** For a pairwise-independent family `U i` with `U i ∈ L⁴`,
+common second moment `α = E[U i²]` and fourth moment `β = E[U i⁴]`, the centered sum of
+squares has second moment `|s|·(β − α²)`:
+
+    E[(Σ_i (U i² − α))²] = |s| · (β − α²).
+
+Each centered square `U i² − α` is mean-zero, square-integrable and independent across `i`
+(functions of the independent `U i`), so the workhorse `sq_integral_sum_eq` applies; the
+per-term second moment is `Var[U i²] = E[U i⁴] − (E[U i²])² = β − α²`. This is the shared
+engine for the diagonal Gram entry and the rank-1 subspace restriction. -/
+theorem centered_sq_sum_eq {s : Finset ι} {U : ι → Ω → ℝ} {α β : ℝ}
+    (hmemSq : ∀ i ∈ s, MemLp (fun ω => (U i ω) ^ 2) 2 μ)
+    (hindep : Set.Pairwise (s : Set ι) fun i j => IndepFun (U i) (U j) μ)
+    (hsq : ∀ i ∈ s, μ[fun ω => (U i ω) ^ 2] = α)
+    (hfour : ∀ i ∈ s, μ[fun ω => (U i ω) ^ 4] = β) :
+    ∫ ω, (∑ i ∈ s, ((U i ω) ^ 2 - α)) ^ 2 ∂μ = (s.card : ℝ) * (β - α ^ 2) := by
+  have hpair : Set.Pairwise (s : Set ι)
+      fun i j => IndepFun (fun ω => (U i ω) ^ 2 - α) (fun ω => (U j ω) ^ 2 - α) μ := by
+    intro i hi j hj hij
+    exact (hindep hi hj hij).comp (φ := fun x : ℝ => x ^ 2 - α)
+      (ψ := fun x : ℝ => x ^ 2 - α) (by fun_prop) (by fun_prop)
+  have hmem : ∀ i ∈ s, MemLp (fun ω => (U i ω) ^ 2 - α) 2 μ :=
+    fun i hi => (hmemSq i hi).sub (memLp_const α)
+  have hmean : ∀ i ∈ s, μ[fun ω => (U i ω) ^ 2 - α] = 0 := by
+    intro i hi
+    rw [integral_sub ((hmemSq i hi).integrable one_le_two) (integrable_const α),
+      integral_const, hsq i hi]
+    simp
+  have hXsq : ∀ i ∈ s, ∫ ω, ((U i ω) ^ 2 - α) ^ 2 ∂μ = β - α ^ 2 := by
+    intro i hi
+    have haem : AEStronglyMeasurable (fun ω => (U i ω) ^ 2) μ :=
+      (hmemSq i hi).aestronglyMeasurable
+    have hpow : (fun ω => (U i ω) ^ 2) ^ 2 = fun ω => (U i ω) ^ 4 := by
+      funext ω; simp only [Pi.pow_apply]; ring
+    rw [show (∫ ω, ((U i ω) ^ 2 - α) ^ 2 ∂μ) = Var[fun ω => (U i ω) ^ 2 - α; μ] from
+        (variance_of_integral_eq_zero (hmem i hi).aemeasurable (hmean i hi)).symm,
+      variance_sub_const haem, variance_eq_sub (hmemSq i hi), hsq i hi, hpow, hfour i hi]
+  rw [sq_integral_sum_eq hmem hmean hpair, Finset.sum_congr rfl hXsq, Finset.sum_const,
+    nsmul_eq_mul]
+
 end SffProof

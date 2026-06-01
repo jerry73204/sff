@@ -73,8 +73,11 @@ Foundation for `isotropy_at_init` (expectation mode). Over a probability space:
 | `integral_sum_eq_zero` | `E[Σᵢ Xᵢ] = 0` (linearity, mean-zero) |
 | `sq_integral_sum_eq` | **workhorse**: `E[(Σᵢ Xᵢ)²] = Σᵢ E[Xᵢ²]` for pairwise-independent mean-zero L² |
 
+| `centered_sq_sum_eq` | engine: `E[(Σᵢ(Uᵢ²−α))²] = |s|·(β−α²)` for indep `Uᵢ`, `α=E[Uᵢ²]`, `β=E[Uᵢ⁴]` |
+
 `sq_integral_sum_eq` = Mathlib `IndepFun.variance_sum` ∘ `variance_of_integral_eq_zero`.
-It is the tool the keystone (entrywise 2nd moment of `VᵀWᵀWV − I`) is built on.
+`centered_sq_sum_eq` lifts it to centered squares (variance route) — the shared engine for
+the diagonal Gram entry and the rank-1 subspace restriction.
 
 ### Keystone — random-matrix core (`SffProof/Probability/RandomMatrix.lean`)
 
@@ -86,14 +89,16 @@ moments are fields (true for i.i.d. entries).
 |---|---|
 | `RandomMatrixEnsemble.gram_offdiag_sq` | `E[(WᵀW)_{pq}²] = n·σ⁴` for `p ≠ q` (= `1/n` at `σ²=1/n`) |
 | `RandomMatrixEnsemble.gram_diag_centered_sq` | `E[((WᵀW)_{pp} − nσ²)²] = n·(m₄ − σ⁴)` (= `O(1/n)`) |
+| `RandomMatrixEnsemble.gram_rank1_centered_sq` | `E[(vᵀWᵀWv − n α_v)²] = n·(β_v − α_v²)` — `d_V=1` isotropy |
 
 Both entries of `WᵀW − E[WᵀW]` have second moment `O(1/n)`. Off-diagonal: `Σ_k R_kp R_kq`,
 row products independent across `k` (via `iIndepFun.comp`), mean-zero → workhorse. Diagonal:
-`Σ_k (R_kp² − σ²)`, centered, second moment via `Var[R_kp²] = E[R_kp⁴] − σ⁴` (`variance_sub_const`
-+ `variance_eq_sub`). Ensemble carries `σ²` and `m₄`.
+`Σ_k (R_kp² − σ²)` via `centered_sq_sum_eq` with `U_k = R_kp`. Rank-1: `vᵀWᵀWv = ‖Wv‖² =
+Σ_k ⟨row_k,v⟩²`, same engine with `U_k = ⟨row_k,v⟩` (rows independent ⇒ projections
+independent). Ensemble carries `σ²`, `m₄`; projected moments `α_v,β_v` are hypotheses.
 
-TODO: `VᵀWᵀWV` restriction over the `o(√n)`-dim subspace `V` + Frobenius + Jensen →
-`isotropy_at_init` (`E‖errIso‖_F ≤ K/√n`). `isotropy_at_init` itself still axiomatized.
+TODO: general `d_V`-dim `VᵀWᵀWV` (off-diagonal-across-directions covariances) + Frobenius +
+Jensen → full `isotropy_at_init` (`E‖errIso‖_F ≤ K/√n`). Still axiomatized.
 
 ## Layer 3 — `SffProof/Main.lean`
 
