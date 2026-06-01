@@ -110,6 +110,40 @@ theorem gram_rank1_centered_sq (v : Fin n → ℝ) {αv βv : ℝ}
   rw [centered_sq_sum_eq (fun k _ => hmemSq k) hpair (fun k _ => hsq k) (fun k _ => hfour k),
     Finset.card_univ, Fintype.card_fin]
 
+/-- **Rank-1 isotropy — expected deviation (Jensen capstone).** Combining the rank-1 second
+moment with `integral_abs_le_sqrt_integral_sq`, the *expected absolute* isotropy deviation
+along `v` is `E|vᵀWᵀWv − n α_v| ≤ √(n·(β_v − α_v²))`. -/
+theorem gram_rank1_abs_le (v : Fin n → ℝ) {αv βv : ℝ}
+    (hmemSq : ∀ k, MemLp (fun ω => (∑ p, Ens.R k ω p * v p) ^ 2) 2 μ)
+    (hsq : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 2] = αv)
+    (hfour : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 4] = βv) :
+    ∫ ω, |∑ k, ((∑ p, Ens.R k ω p * v p) ^ 2 - αv)| ∂μ
+      ≤ Real.sqrt ((n : ℝ) * (βv - αv ^ 2)) := by
+  have hD : MemLp (fun ω => ∑ k, ((∑ p, Ens.R k ω p * v p) ^ 2 - αv)) 2 μ :=
+    memLp_finsetSum _ fun k _ => (hmemSq k).sub (memLp_const αv)
+  have h := integral_abs_le_sqrt_integral_sq hD
+  rwa [gram_rank1_centered_sq Ens v hmemSq hsq hfour] at h
+
+/-- **Rank-1 `isotropy_at_init`, expectation form.** If the projected variance gap obeys
+`β_v − α_v² ≤ K/n²` (true with `α_v = σ²‖v‖²`, `σ² = 1/n` and bounded moments), the expected
+isotropy deviation along `v` is `O(1/√n)`:
+
+    E|vᵀWᵀWv − n α_v| ≤ √(K/n).
+
+This is the `d_V = 1` case of `isotropy_at_init` (`‖errIso‖ ≤ K/√n`) discharged in
+expectation, modulo the projected/4th-moment inputs. -/
+theorem gram_rank1_isotropy_bound (v : Fin n → ℝ) {αv βv K : ℝ}
+    (hmemSq : ∀ k, MemLp (fun ω => (∑ p, Ens.R k ω p * v p) ^ 2) 2 μ)
+    (hsq : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 2] = αv)
+    (hfour : ∀ k, μ[fun ω => (∑ p, Ens.R k ω p * v p) ^ 4] = βv)
+    (hn : 0 < n) (hK : βv - αv ^ 2 ≤ K / (n : ℝ) ^ 2) :
+    ∫ ω, |∑ k, ((∑ p, Ens.R k ω p * v p) ^ 2 - αv)| ∂μ ≤ Real.sqrt (K / (n : ℝ)) := by
+  refine (gram_rank1_abs_le Ens v hmemSq hsq hfour).trans (Real.sqrt_le_sqrt ?_)
+  have hnpos : (0 : ℝ) < n := by exact_mod_cast hn
+  calc (n : ℝ) * (βv - αv ^ 2) ≤ (n : ℝ) * (K / (n : ℝ) ^ 2) :=
+        mul_le_mul_of_nonneg_left hK hnpos.le
+    _ = K / (n : ℝ) := by field_simp
+
 end RandomMatrixEnsemble
 
 end SffProof

@@ -91,4 +91,23 @@ theorem centered_sq_sum_eq {s : Finset ι} {U : ι → Ω → ℝ} {α β : ℝ}
   rw [sq_integral_sum_eq hmem hmean hpair, Finset.sum_congr rfl hXsq, Finset.sum_const,
     nsmul_eq_mul]
 
+/-- **Jensen / L¹ ≤ L².** On a probability space, the mean absolute value is at most the
+root mean square: `E|D| ≤ √(E[D²])`. Follows from `0 ≤ Var|D| = E[D²] − (E|D|)²`. Turns a
+second-moment bound into a first-moment (expected-deviation) bound. -/
+theorem integral_abs_le_sqrt_integral_sq {D : Ω → ℝ} (hD : MemLp D 2 μ) :
+    ∫ ω, |D ω| ∂μ ≤ Real.sqrt (∫ ω, (D ω) ^ 2 ∂μ) := by
+  have hg : MemLp (fun ω => |D ω|) 2 μ := by
+    have h := hD.norm; simpa only [Real.norm_eq_abs] using h
+  have h := variance_nonneg (fun ω => |D ω|) μ
+  rw [variance_eq_sub hg] at h
+  have hg2 : μ[(fun ω => |D ω|) ^ 2] = ∫ ω, (D ω) ^ 2 ∂μ := by
+    simp only [Pi.pow_apply]
+    refine integral_congr_ae (Filter.Eventually.of_forall fun ω => ?_)
+    simp only [sq_abs]
+  rw [hg2] at h
+  have hnn : 0 ≤ ∫ ω, |D ω| ∂μ := integral_nonneg (fun ω => abs_nonneg _)
+  have hle : (∫ ω, |D ω| ∂μ) ^ 2 ≤ ∫ ω, (D ω) ^ 2 ∂μ := by nlinarith [h]
+  calc ∫ ω, |D ω| ∂μ = Real.sqrt ((∫ ω, |D ω| ∂μ) ^ 2) := (Real.sqrt_sq hnn).symm
+    _ ≤ Real.sqrt (∫ ω, (D ω) ^ 2 ∂μ) := Real.sqrt_le_sqrt hle
+
 end SffProof

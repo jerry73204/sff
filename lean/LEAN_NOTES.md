@@ -74,6 +74,7 @@ Foundation for `isotropy_at_init` (expectation mode). Over a probability space:
 | `sq_integral_sum_eq` | **workhorse**: `E[(Σᵢ Xᵢ)²] = Σᵢ E[Xᵢ²]` for pairwise-independent mean-zero L² |
 
 | `centered_sq_sum_eq` | engine: `E[(Σᵢ(Uᵢ²−α))²] = |s|·(β−α²)` for indep `Uᵢ`, `α=E[Uᵢ²]`, `β=E[Uᵢ⁴]` |
+| `integral_abs_le_sqrt_integral_sq` | Jensen: `E\|D\| ≤ √(E[D²])` (prob measure, via `variance_nonneg`) |
 
 `sq_integral_sum_eq` = Mathlib `IndepFun.variance_sum` ∘ `variance_of_integral_eq_zero`.
 `centered_sq_sum_eq` lifts it to centered squares (variance route) — the shared engine for
@@ -89,7 +90,9 @@ moments are fields (true for i.i.d. entries).
 |---|---|
 | `RandomMatrixEnsemble.gram_offdiag_sq` | `E[(WᵀW)_{pq}²] = n·σ⁴` for `p ≠ q` (= `1/n` at `σ²=1/n`) |
 | `RandomMatrixEnsemble.gram_diag_centered_sq` | `E[((WᵀW)_{pp} − nσ²)²] = n·(m₄ − σ⁴)` (= `O(1/n)`) |
-| `RandomMatrixEnsemble.gram_rank1_centered_sq` | `E[(vᵀWᵀWv − n α_v)²] = n·(β_v − α_v²)` — `d_V=1` isotropy |
+| `RandomMatrixEnsemble.gram_rank1_centered_sq` | `E[(vᵀWᵀWv − n α_v)²] = n·(β_v − α_v²)` — `d_V=1` 2nd moment |
+| `RandomMatrixEnsemble.gram_rank1_abs_le` | Jensen: `E\|vᵀWᵀWv − n α_v\| ≤ √(n(β_v−α_v²))` |
+| `RandomMatrixEnsemble.gram_rank1_isotropy_bound` | **`d_V=1` `isotropy_at_init` closed (expectation):** `≤ √(K/n) = O(1/√n)` |
 
 Both entries of `WᵀW − E[WᵀW]` have second moment `O(1/n)`. Off-diagonal: `Σ_k R_kp R_kq`,
 row products independent across `k` (via `iIndepFun.comp`), mean-zero → workhorse. Diagonal:
