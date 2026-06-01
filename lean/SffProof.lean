@@ -4,3 +4,4 @@ import SffProof.Defs
 import SffProof.Skeleton
 import SffProof.Hypotheses
 import SffProof.Main
+import SffProof.Softmax

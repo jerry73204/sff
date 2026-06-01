@@ -50,6 +50,20 @@ facts; the structure carries no `sorry`.
 Each hypothesis field has a docstring: informal statement, why true, citation, NOT YET
 FORMALIZED tag. `scripts/check_no_sorry.sh` asserts no `sorry` exists outside this file.
 
+### Discharging the hypotheses — progress (`SffProof/Softmax.lean`)
+
+`gram_match` splits into deterministic glue (proven) ∘ random core (Gram closeness, TODO).
+The glue is **softmax stability**, proven elementarily (no calculus):
+
+| Lean theorem | Fact |
+|---|---|
+| `softmax_sub_abs_le` | logits agree to `ε` ⇒ each weight moves `≤ (e^{2ε}−1)·weight` |
+| `softmax_l1_sub_le` | `‖p(a) − p(b)‖₁ ≤ e^{2ε}−1` for `ε = ‖logits a − logits b‖_∞` |
+| `softmax_sum_eq_one`, `softmax_nonneg`, `softmax_denom_pos` | softmax is a distribution |
+
+This reduces `gram_match` to Gram closeness `ε = ‖scores^(ℓ) − scores^(L)‖_∞ → 0`, the
+remaining random-matrix input. `isotropy_at_init` still fully axiomatized.
+
 ## Layer 3 — `SffProof/Main.lean`
 
 | Lean theorem | Obligation | Fact |
