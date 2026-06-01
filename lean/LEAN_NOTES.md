@@ -85,11 +85,15 @@ moments are fields (true for i.i.d. entries).
 | Lean theorem | Fact |
 |---|---|
 | `RandomMatrixEnsemble.gram_offdiag_sq` | `E[(WᵀW)_{pq}²] = n·σ⁴` for `p ≠ q` (= `1/n` at `σ²=1/n`) |
+| `RandomMatrixEnsemble.gram_diag_centered_sq` | `E[((WᵀW)_{pp} − nσ²)²] = n·(m₄ − σ⁴)` (= `O(1/n)`) |
 
-Off-diagonal Gram entry `= Σ_k R_kp R_kq`; the row products are independent across `k`
-(derived from row independence via `iIndepFun.comp`) and mean-zero, so the workhorse applies.
-TODO: diagonal entry (needs 4th moment + centering); then `VᵀWᵀWV` restriction + Jensen →
-`isotropy_at_init` in expectation. `isotropy_at_init` itself still axiomatized.
+Both entries of `WᵀW − E[WᵀW]` have second moment `O(1/n)`. Off-diagonal: `Σ_k R_kp R_kq`,
+row products independent across `k` (via `iIndepFun.comp`), mean-zero → workhorse. Diagonal:
+`Σ_k (R_kp² − σ²)`, centered, second moment via `Var[R_kp²] = E[R_kp⁴] − σ⁴` (`variance_sub_const`
++ `variance_eq_sub`). Ensemble carries `σ²` and `m₄`.
+
+TODO: `VᵀWᵀWV` restriction over the `o(√n)`-dim subspace `V` + Frobenius + Jensen →
+`isotropy_at_init` (`E‖errIso‖_F ≤ K/√n`). `isotropy_at_init` itself still axiomatized.
 
 ## Layer 3 — `SffProof/Main.lean`
 
