@@ -17,8 +17,10 @@ See `design.md` (full spec) and `THEORY.md` (symbol table, single source of trut
 | L | Obl 1–4 algebraic skeleton (`Skeleton.lean`) | ✅ proven, no `sorry` |
 | L | Layer 2 hypotheses (`Hypotheses.lean`) | ✅ axiomatized + documented |
 | L | Obl 5 headline theorem `scff_alignment_at_init` (`Main.lean`) | ✅ proven, no `sorry` |
-| E | model / scff / fisher / gradients / metrics | ⬜ not started |
-| E | E1 init-scaling, E2 dynamics, E3 batch/width | ⬜ not started |
+| E | model / scff / gradients / metrics | ✅ built, gradient↔autograd anchor passes (1e-5) |
+| E | E1 init-scaling | ✅ **isotropy term scales `n^{-1/2}`** (slopes −0.45, −0.53) — validates the Lean random-matrix proof |
+| E | E2 dynamics | ✅ run; alignment degrades under linear SCFF training (honest negative for persistence) |
+| E | fisher (NGD-FF), E3 batch/width | ⬜ not started |
 
 Headline Lean result `scff_alignment_at_init` depends only on `[propext, Classical.choice,
 Quot.sound]` (no `sorryAx`) — fully proven modulo the two bundled analytic hypotheses
@@ -42,7 +44,24 @@ symbol.
 
 ## Track E — run
 
-Not yet implemented. Planned: PyTorch, CPU-fine; see `design.md` §2.
+uv-managed (CPU torch). With direnv: `cd empirical` auto-syncs + activates. Manual:
+
+```bash
+cd empirical
+uv sync
+uv run pytest                              # gradient↔autograd anchor + sanity (10 tests)
+uv run python experiments/e1_init_scaling.py   # init-scaling exponent
+uv run python experiments/e2_dynamics.py       # training dynamics overlay
+```
+
+Outputs land in `empirical/runs/` (CSV + YAML + verdict) and `empirical/plots/`.
+
+**E1 finding.** `1 - A^{(\ell)} \le C/\sqrt n + C'\delta`. The **isotropy term** (`Aniso`,
+the quantity the Lean `gram_subspace_isotropy_bound` controls) scales as `n^{-1/2}`
+empirically (slopes −0.45, −0.53, both in the accept band) — the Lean theorem validated.
+The **total** `1-A` stays flat in `n`: the binding term is `\delta` = cross-layer kernel
+drift (`p^{(\ell)} \ne p^{(L)}`), a **depth** effect not cured by width. So width alone gives
+isotropy, not full BP-alignment; that also needs kernel preservation across layers.
 
 ## Layout
 
