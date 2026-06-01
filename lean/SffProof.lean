@@ -6,6 +6,7 @@ import SffProof.Hypotheses
 import SffProof.Main
 import SffProof.Softmax
 import SffProof.Normalization
+import SffProof.Residual
 import SffProof.Probability.Moments
 import SffProof.Probability.RandomMatrix
 import SffProof.Probability.Subspace

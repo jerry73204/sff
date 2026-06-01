@@ -50,6 +50,22 @@ Deterministic (pure real analysis). Combined with numerator/denominator concentr
 denominator each deviate `O(√n)` from `O(n)` means, so the ratio deviates `O(1/√n)` — on the
 event that the denominator stays within a factor 2 of its mean.
 
+### Residual-regime isotropy (`SffProof/Residual.lean`)
+
+Formalizes the Track-E residual result: skip connections make the downstream operator
+`M = I + E` (`E = αΣJ`, small), so isotropy holds **deterministically** — no random matrix,
+no `o(√n)`.
+
+| Lean theorem | Fact |
+|---|---|
+| `residual_isotropy` | `M = 1 + E` ⇒ `‖MᵀM − 1‖ ≤ 2‖E‖ + ‖E‖²` (normed `⋆`-ring) |
+| `residual_isotropy_linear` | `‖E‖ ≤ 1` ⇒ `‖MᵀM − 1‖ ≤ 3‖E‖` — the deterministic `Aniso = O(α)` law |
+
+Abstract over any normed `⋆`-ring (Frobenius matrices, C*-algebras). Complements
+`gram_subspace_isotropy_bound` (random/wide regime `≤ d√(K/n)`): residual gives the same
+isotropy conclusion with the random-matrix `K` replaced by the residual scale `α`, and matches
+the measured `1 − A ≈ Aniso ≈ O(α)`.
+
 ## Layer 2 — `SffProof/Hypotheses.lean` (axiomatized — NOT YET FORMALIZED)
 
 Bundled in `structure SCFFInitHypotheses E`. Constructing a term = supplying the analytic
