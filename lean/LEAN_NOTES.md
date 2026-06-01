@@ -35,6 +35,21 @@ real-analysis content), so it applies verbatim to the Frobenius gradient space. 
 Bound is quadratic in `‖Err‖`; in the small-error regime it gives the linear
 `1 − A ≤ C·‖Err‖` of design §3.1.
 
+### Normalization (`SffProof/Normalization.lean`)
+
+Lifts concentration through `z = y/‖y‖`. The normalized Gram entry
+`⟨z_i,z_j⟩ = ⟨y_i,y_j⟩/(‖y_i‖‖y_j‖)` is a ratio of concentrating quantities.
+
+| Lean theorem | Fact |
+|---|---|
+| `ratio_perturbation` | `b̄/2 ≤ b` ⇒ `\|a/b − ā/b̄\| ≤ (2/b̄)\|a−ā\| + (2\|ā\|/b̄²)\|b−b̄\|` |
+| `normalized_gram_perturbation` | the same, specialized to the normalized-Gram ratio |
+
+Deterministic (pure real analysis). Combined with numerator/denominator concentration
+(`gram_entry_abs_le`), this gives normalized-Gram (`z`-kernel) concentration: numerator and
+denominator each deviate `O(√n)` from `O(n)` means, so the ratio deviates `O(1/√n)` — on the
+event that the denominator stays within a factor 2 of its mean.
+
 ## Layer 2 — `SffProof/Hypotheses.lean` (axiomatized — NOT YET FORMALIZED)
 
 Bundled in `structure SCFFInitHypotheses E`. Constructing a term = supplying the analytic
