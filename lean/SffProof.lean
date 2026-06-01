@@ -6,3 +6,4 @@ import SffProof.Hypotheses
 import SffProof.Main
 import SffProof.Softmax
 import SffProof.Probability.Moments
+import SffProof.Probability.RandomMatrix

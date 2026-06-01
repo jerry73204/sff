@@ -75,7 +75,21 @@ Foundation for `isotropy_at_init` (expectation mode). Over a probability space:
 
 `sq_integral_sum_eq` = Mathlib `IndepFun.variance_sum` ∘ `variance_of_integral_eq_zero`.
 It is the tool the keystone (entrywise 2nd moment of `VᵀWᵀWV − I`) is built on.
-`isotropy_at_init` itself still axiomatized.
+
+### Keystone — random-matrix core (`SffProof/Probability/RandomMatrix.lean`)
+
+Linear / single random matrix `W` (`σ² = 1/n` μP scaling). Rows modelled as i.i.d. random
+vectors via `structure RandomMatrixEnsemble`; row independence is a field, mixed within-row
+moments are fields (true for i.i.d. entries).
+
+| Lean theorem | Fact |
+|---|---|
+| `RandomMatrixEnsemble.gram_offdiag_sq` | `E[(WᵀW)_{pq}²] = n·σ⁴` for `p ≠ q` (= `1/n` at `σ²=1/n`) |
+
+Off-diagonal Gram entry `= Σ_k R_kp R_kq`; the row products are independent across `k`
+(derived from row independence via `iIndepFun.comp`) and mean-zero, so the workhorse applies.
+TODO: diagonal entry (needs 4th moment + centering); then `VᵀWᵀWV` restriction + Jensen →
+`isotropy_at_init` in expectation. `isotropy_at_init` itself still axiomatized.
 
 ## Layer 3 — `SffProof/Main.lean`
 
