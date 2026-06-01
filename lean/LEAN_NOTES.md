@@ -64,6 +64,23 @@ The glue is **softmax stability**, proven elementarily (no calculus):
 This reduces `gram_match` to Gram closeness `ε = ‖scores^(ℓ) − scores^(L)‖_∞ → 0`, the
 remaining random-matrix input.
 
+| `softmax_l1_le_linear` | linearized: `ε ≤ M` ⇒ `‖p(a)−p(b)‖₁ ≤ 2e^{2M}·ε` (linear in `ε`) |
+
+`softmax_l1_le_linear` makes the softmax→Gram reduction **linear**, so a logit-closeness
+bound `ε ≤ K/√n` gives `‖p^(ℓ)−p^(L)‖₁ ≤ C/√n` directly (no nonlinear `e^{2ε}−1`).
+
+### Gram closeness — random core (`SffProof/Probability/Subspace.lean`)
+
+The unnormalized Gram entry `⟨y_i,y_j⟩ = x_iᵀWᵀWx_j` is the same quadratic form as the
+subspace entries (directions = input vectors):
+
+| `gram_entry_abs_le` | `E\|x_iᵀWᵀWx_j − α\| ≤ √(n(γ−α²))` (Jensen on `gram_subspace_entry_sq`) |
+| `gram_entry_isotropy_bound` | with `γ−α² ≤ K/n²`: `≤ √(K/n) = O(1/√n)` — Gram entry concentration |
+
+So the score difference `ε = O(1/√n)` in expectation; fed through `softmax_l1_le_linear`
+this gives `E‖p^(ℓ)−p^(L)‖₁ = O(1/√n)` — `gram_match` discharged in expectation, modulo
+the normalization (`z = y/‖y‖`) across layers.
+
 ### Probability scaffolding (`SffProof/Probability/Moments.lean`)
 
 Foundation for `isotropy_at_init` (expectation mode). Over a probability space:

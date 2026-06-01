@@ -50,6 +50,34 @@ theorem entry_memLp (va vb : Fin n → ℝ) (α : ℝ)
     MemLp (fun ω => ∑ k, (Ens.prodEntry va vb k ω - α)) 2 μ :=
   memLp_finsetSum _ fun k _ => (hmem k).sub (memLp_const α)
 
+/-- **Gram-entry closeness (Jensen).** The expected absolute deviation of the unnormalized
+Gram entry `⟨y_i,y_j⟩ = x_iᵀWᵀWx_j` (directions `va = x_i`, `vb = x_j`) from its mean is
+`E|Σ_k(⟨row,va⟩⟨row,vb⟩ − α)| ≤ √(n·(γ − α²))`. -/
+theorem gram_entry_abs_le (va vb : Fin n → ℝ) {α γ : ℝ}
+    (hmem : ∀ k, MemLp (Ens.prodEntry va vb k) 2 μ)
+    (hmean : ∀ k, μ[Ens.prodEntry va vb k] = α)
+    (hsq : ∀ k, μ[fun ω => (Ens.prodEntry va vb k ω) ^ 2] = γ) :
+    ∫ ω, |∑ k, (Ens.prodEntry va vb k ω - α)| ∂μ ≤ Real.sqrt ((n : ℝ) * (γ - α ^ 2)) := by
+  have h := integral_abs_le_sqrt_integral_sq (Ens.entry_memLp va vb α hmem)
+  rwa [Ens.gram_subspace_entry_sq va vb hmem hmean hsq] at h
+
+/-- **Gram-entry closeness, `O(1/√n)` form.** With the entry variance gap `γ − α² ≤ K/n²`,
+the unnormalized Gram entry concentrates to its mean at rate `O(1/√n)`:
+`E|x_iᵀWᵀWx_j − α| ≤ √(K/n)`. This is the random core feeding the softmax linearization
+(`softmax_l1_le_linear`): the score difference `ε = O(1/√n)` ⇒ `‖p^(ℓ) − p^(L)‖₁ = O(1/√n)`,
+discharging `gram_match` in expectation (modulo normalization across layers). -/
+theorem gram_entry_isotropy_bound (va vb : Fin n → ℝ) {α γ K : ℝ}
+    (hmem : ∀ k, MemLp (Ens.prodEntry va vb k) 2 μ)
+    (hmean : ∀ k, μ[Ens.prodEntry va vb k] = α)
+    (hsq : ∀ k, μ[fun ω => (Ens.prodEntry va vb k ω) ^ 2] = γ)
+    (hn : 0 < n) (hgap : γ - α ^ 2 ≤ K / (n : ℝ) ^ 2) :
+    ∫ ω, |∑ k, (Ens.prodEntry va vb k ω - α)| ∂μ ≤ Real.sqrt (K / (n : ℝ)) := by
+  refine (Ens.gram_entry_abs_le va vb hmem hmean hsq).trans (Real.sqrt_le_sqrt ?_)
+  have hnpos : (0 : ℝ) < n := by exact_mod_cast hn
+  calc (n : ℝ) * (γ - α ^ 2) ≤ (n : ℝ) * (K / (n : ℝ) ^ 2) :=
+        mul_le_mul_of_nonneg_left hgap hnpos.le
+    _ = K / (n : ℝ) := by field_simp
+
 /-- **General Frobenius second moment.** `E‖VᵀM̃V‖_F² = Σ_{a,b} n·(γ_{ab} − α_{ab}²)`, the
 sum of all `d²` entry second moments. -/
 theorem gram_subspace_frob_sq {d : ℕ} (V : Fin d → (Fin n → ℝ)) (α γ : Fin d → Fin d → ℝ)

@@ -116,4 +116,24 @@ theorem softmax_l1_sub_le {a b : Fin B → ℝ} {ε : ℝ} (h : ∀ k, |a k - b 
     _ = (Real.exp (2 * ε) - 1) * ∑ i, softmax b i := by rw [← Finset.mul_sum]
     _ = Real.exp (2 * ε) - 1 := by rw [softmax_sum_eq_one, mul_one]
 
+/-- **Linearized softmax stability.** For logit perturbations bounded by `ε ≤ M`, the ℓ¹
+softmax difference is *linear* in `ε`: `‖p(a) − p(b)‖₁ ≤ 2 e^{2M}·ε`. This makes the
+reduction of `gram_match` to logit (Gram) closeness linear: a bound `ε ≤ K/√n` on the
+score difference yields `‖p^(ℓ) − p^(L)‖₁ ≤ C/√n`. The remaining input — closeness of the
+unnormalized Gram entries `x_iᵀWᵀWx_j` across layers — is the same quadratic-form
+concentration as `gram_subspace_entry_sq`. -/
+theorem softmax_l1_le_linear {a b : Fin B → ℝ} {ε M : ℝ} (hε0 : 0 ≤ ε) (hεM : ε ≤ M)
+    (h : ∀ k, |a k - b k| ≤ ε) :
+    ∑ i, |softmax a i - softmax b i| ≤ 2 * Real.exp (2 * M) * ε := by
+  refine (softmax_l1_sub_le h).trans ?_
+  have he3 : Real.exp (2 * ε) * Real.exp (-(2 * ε)) = 1 := by rw [← Real.exp_add]; simp
+  have hx : 1 - 2 * ε ≤ Real.exp (-(2 * ε)) := by
+    have := Real.add_one_le_exp (-(2 * ε)); linarith
+  have hstep1 : Real.exp (2 * ε) - 1 ≤ 2 * ε * Real.exp (2 * ε) := by
+    nlinarith [mul_le_mul_of_nonneg_left hx (Real.exp_pos (2 * ε)).le, he3]
+  calc Real.exp (2 * ε) - 1 ≤ 2 * ε * Real.exp (2 * ε) := hstep1
+    _ ≤ 2 * ε * Real.exp (2 * M) :=
+        mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr (by linarith)) (by linarith)
+    _ = 2 * Real.exp (2 * M) * ε := by ring
+
 end SffProof
