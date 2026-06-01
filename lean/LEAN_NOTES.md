@@ -25,7 +25,15 @@ Maps each Lean def/theorem to its `THEORY.md` symbol. Required by Track-L accept
 | `gradient_shared_right_factor` | 2 | local & global share `(y^(ℓ-1)_i)^T`; scaling left scales grad |
 | `cosAngleM_eq_one_of_parallel` | (support) | Frobenius parallel ⇒ cosine 1 |
 | `alignment_one_of_isotropic_and_matched` | 3 | isotropy `M^TM\|_V=c·I` + `p^(ℓ)=p^(L)` ⇒ `A^(ℓ)=1` |
-| `frob_smul_left`, `frobNorm_smul`, `frob_self_nonneg`, `frobNorm_mul_self` | (support) | Frobenius algebra |
+| `alignment_perturbation_bound` | 4 | `G = c·g + Err` ⇒ `1 − A ≤ 2‖Err‖²/(c‖g‖)²` |
+| `one_sub_cosAngle_eq`, `norm_normalize_sub_le`, `cosAngle_smul_right` | (support) | chord identity + renorm Lipschitz |
+| `frob_smul_left`, `frob_smul_right`, `frobNorm_smul`, `frob_self_nonneg`, `frobNorm_mul_self` | (support) | Frobenius algebra |
+
+Note on Obl 4: stated abstractly for any real inner product space `E` (the Lipschitz/
+real-analysis content), so it applies verbatim to the Frobenius gradient space. The error
+`Err` is the operator anisotropy `E` on `V` plus the softmax mismatch `δ` (THEORY.md §5).
+Bound is quadratic in `‖Err‖`; in the small-error regime it gives the linear
+`1 − A ≤ C·‖Err‖` of design §3.1.
 
 ## Layer 2 — `SffProof/Hypotheses.lean` (axiomatized — NOT YET FORMALIZED)
 
@@ -38,5 +46,6 @@ Maps each Lean def/theorem to its `THEORY.md` symbol. Required by Track-L accept
 
 | Planned Lean | Obligation | Fact |
 |---|---|---|
-| `alignment_perturbation_bound` | 4 | `1 − A ≤ C·‖E‖` when downstream `= c·I_V + E` |
-| `scff_alignment_at_init` | 5 | assemble: `1 − A^(ℓ) ≤ C/√n + C'·δ` |
+| `scff_alignment_at_init` | 5 | assemble: feed Layer-2 hypotheses into Obl 4 ⇒ `1 − A^(ℓ) ≤ C/√n + C'·δ` |
+
+(Obligation 4 `alignment_perturbation_bound` is proven in Layer 1 / `Skeleton.lean`.)

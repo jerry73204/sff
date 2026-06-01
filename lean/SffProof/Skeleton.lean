@@ -30,6 +30,81 @@ theorem inner_product_cosine_one_of_parallel
     Real.norm_eq_abs, abs_of_pos hc]
   field_simp
 
+/-! #### Obligation 4 — perturbation bound
+
+The downstream operator is `c • I_V + E`; the global left factor is then `c • (local) + e`
+with `‖e‖ ≤ ‖E‖·(…)`. Abstractly: if `G = c • g + Err` then the alignment cosine of `G`
+with `g` is within `O(‖Err‖²)` of 1. Real-analysis, Lipschitz-style, fully provable.
+
+Two pieces: a chord identity and the normalization (renormalize) Lipschitz bound. -/
+
+/-- Scaling the second argument by a positive constant leaves the cosine unchanged. -/
+theorem cosAngle_smul_right {u v : E} {c : ℝ} (hc : 0 < c) :
+    cosAngle u (c • v) = cosAngle u v := by
+  rw [cosAngle, cosAngle, real_inner_smul_right, norm_smul, Real.norm_eq_abs, abs_of_pos hc,
+    show ‖u‖ * (c * ‖v‖) = c * (‖u‖ * ‖v‖) by ring, mul_div_mul_left _ _ hc.ne']
+
+/-- **Chord identity.** For nonzero `u v`, `1 − cosAngle u v = ‖û − v̂‖² / 2`
+(`û = ‖u‖⁻¹ • u`). -/
+theorem one_sub_cosAngle_eq {u v : E} (hu : u ≠ 0) (hv : v ≠ 0) :
+    1 - cosAngle u v = ‖‖u‖⁻¹ • u - ‖v‖⁻¹ • v‖ ^ 2 / 2 := by
+  have hu' : ‖u‖ ≠ 0 := norm_ne_zero_iff.mpr hu
+  have hv' : ‖v‖ ≠ 0 := norm_ne_zero_iff.mpr hv
+  have hpu : ‖‖u‖⁻¹ • u‖ = 1 := norm_smul_inv_norm hu
+  have hpv : ‖‖v‖⁻¹ • v‖ = 1 := norm_smul_inv_norm hv
+  have hinner : ⟪‖u‖⁻¹ • u, ‖v‖⁻¹ • v⟫ = cosAngle u v := by
+    rw [real_inner_smul_left, real_inner_smul_right, cosAngle]
+    field_simp
+  rw [norm_sub_sq_real, hpu, hpv, hinner]
+  ring
+
+/-- **Renormalization Lipschitz bound.** `‖û − v̂‖ ≤ 2‖u − v‖ / ‖v‖`. -/
+theorem norm_normalize_sub_le {u v : E} (hu : u ≠ 0) (hv : v ≠ 0) :
+    ‖‖u‖⁻¹ • u - ‖v‖⁻¹ • v‖ ≤ 2 * ‖u - v‖ / ‖v‖ := by
+  have hu' : (0:ℝ) < ‖u‖ := norm_pos_iff.mpr hu
+  have hv' : (0:ℝ) < ‖v‖ := norm_pos_iff.mpr hv
+  have hdecomp : ‖u‖⁻¹ • u - ‖v‖⁻¹ • v
+      = ‖v‖⁻¹ • (u - v) + (‖u‖⁻¹ - ‖v‖⁻¹) • u := by module
+  have key : ‖‖u‖⁻¹ • u - ‖v‖⁻¹ • v‖ ≤ ‖u - v‖ / ‖v‖ + ‖u - v‖ / ‖v‖ := by
+    rw [hdecomp]
+    refine (norm_add_le _ _).trans ?_
+    rw [norm_smul, norm_smul, Real.norm_eq_abs, Real.norm_eq_abs]
+    have t1 : |‖v‖⁻¹| * ‖u - v‖ = ‖u - v‖ / ‖v‖ := by
+      rw [abs_of_pos (inv_pos.mpr hv'), inv_mul_eq_div]
+    have t2 : |‖u‖⁻¹ - ‖v‖⁻¹| * ‖u‖ ≤ ‖u - v‖ / ‖v‖ := by
+      have h1 : |‖u‖⁻¹ - ‖v‖⁻¹| * ‖u‖ = |‖v‖ - ‖u‖| / ‖v‖ := by
+        rw [inv_sub_inv hu'.ne' hv'.ne', abs_div,
+          abs_of_pos (by positivity : (0:ℝ) < ‖u‖ * ‖v‖)]
+        field_simp
+      rw [h1]
+      gcongr
+      rw [abs_sub_comm]
+      exact abs_norm_sub_norm_le u v
+    rw [t1]
+    exact add_le_add (le_refl _) t2
+  have hcombine : ‖u - v‖ / ‖v‖ + ‖u - v‖ / ‖v‖ = 2 * ‖u - v‖ / ‖v‖ := by ring
+  rwa [hcombine] at key
+
+/-- **Obligation 4 (alignment_perturbation_bound).** If the global gradient is a positive
+multiple of the local one plus an error `Err` (the error being the anisotropy `E` of the
+downstream operator on `V` together with the softmax mismatch), then
+`1 − A^(ℓ) ≤ 2‖Err‖² / (c‖g‖)²`. Quadratic in the error; in the small-error regime this is
+the Lipschitz `1 − A ≤ C·‖Err‖` bound of design §3.1. -/
+theorem alignment_perturbation_bound {g G Err : E} {c : ℝ}
+    (hc : 0 < c) (hg : g ≠ 0) (hG : G ≠ 0) (hEq : G = c • g + Err) :
+    1 - cosAngle G g ≤ 2 * ‖Err‖ ^ 2 / (c * ‖g‖) ^ 2 := by
+  have hcg : c • g ≠ 0 := smul_ne_zero hc.ne' hg
+  have hErr : G - c • g = Err := by rw [hEq]; abel
+  have hcgnorm : ‖c • g‖ = c * ‖g‖ := by
+    rw [norm_smul, Real.norm_eq_abs, abs_of_pos hc]
+  have hlip : ‖‖G‖⁻¹ • G - ‖c • g‖⁻¹ • c • g‖ ≤ 2 * ‖Err‖ / ‖c • g‖ := by
+    have h := norm_normalize_sub_le hG hcg
+    rwa [hErr] at h
+  rw [← cosAngle_smul_right (u := G) (v := g) hc, one_sub_cosAngle_eq hG hcg]
+  calc ‖‖G‖⁻¹ • G - ‖c • g‖⁻¹ • c • g‖ ^ 2 / 2
+      ≤ (2 * ‖Err‖ / ‖c • g‖) ^ 2 / 2 := by gcongr
+    _ = 2 * ‖Err‖ ^ 2 / (c * ‖g‖) ^ 2 := by rw [hcgnorm, div_pow, mul_pow]; ring
+
 end Abstract
 
 /-! ### Frobenius helper lemmas -/
