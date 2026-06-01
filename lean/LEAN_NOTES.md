@@ -37,15 +37,28 @@ Bound is quadratic in `‖Err‖`; in the small-error regime it gives the linear
 
 ## Layer 2 — `SffProof/Hypotheses.lean` (axiomatized — NOT YET FORMALIZED)
 
-| Planned Lean | THEORY.md symbol | Status |
+Bundled in `structure SCFFInitHypotheses E`. Constructing a term = supplying the analytic
+facts; the structure carries no `sorry`.
+
+| Lean field | THEORY.md symbol | Status |
 |---|---|---|
-| `isotropy_at_init` | `‖V^T(M^TM)V − c·I‖ ≤ K/√n` (§5) | hypothesis (random-matrix) |
-| `gram_match` | `‖p^(ℓ) − p^(L)‖ ≤ δ` (§5) | hypothesis (Gram matching) |
+| `isotropy_at_init` | `‖V^T(M^TM)V − c·I‖ ≤ K/√n` → `‖errIso‖ ≤ K/√n` (§5) | hypothesis (random-matrix) |
+| `gram_match` | `‖p^(ℓ) − p^(L)‖ ≤ δ` → `‖errGram‖ ≤ δ` (§5) | hypothesis (Gram matching) |
+| `decomp` | `gGlob = c·gLoc + (errIso+errGram)` (§3) | structural (from Obl 2) |
+| `err_small` | `‖err‖ ≤ c‖gLoc‖` | small-error regime (large `n`) |
+
+Each hypothesis field has a docstring: informal statement, why true, citation, NOT YET
+FORMALIZED tag. `scripts/check_no_sorry.sh` asserts no `sorry` exists outside this file.
 
 ## Layer 3 — `SffProof/Main.lean`
 
-| Planned Lean | Obligation | Fact |
+| Lean theorem | Obligation | Fact |
 |---|---|---|
-| `scff_alignment_at_init` | 5 | assemble: feed Layer-2 hypotheses into Obl 4 ⇒ `1 − A^(ℓ) ≤ C/√n + C'·δ` |
+| `scff_alignment_at_init` | 5 | feed Layer-2 hypotheses into Obl 4 (linear) ⇒ `1 − A^(ℓ) ≤ 2K/(c‖∇g‖)·(1/√n) + 2/(c‖∇g‖)·δ` |
 
-(Obligation 4 `alignment_perturbation_bound` is proven in Layer 1 / `Skeleton.lean`.)
+(Obligation 4 `alignment_perturbation_bound` + its linear corollary
+`alignment_perturbation_bound_linear` are proven in Layer 1 / `Skeleton.lean`.)
+
+**Verification:** `#print axioms scff_alignment_at_init` → `[propext, Classical.choice,
+Quot.sound]` only (no `sorryAx`). The headline theorem is fully proven modulo the explicitly
+bundled hypotheses.

@@ -105,6 +105,23 @@ theorem alignment_perturbation_bound {g G Err : E} {c : ℝ}
       ≤ (2 * ‖Err‖ / ‖c • g‖) ^ 2 / 2 := by gcongr
     _ = 2 * ‖Err‖ ^ 2 / (c * ‖g‖) ^ 2 := by rw [hcgnorm, div_pow, mul_pow]; ring
 
+/-- **Linear perturbation bound.** In the small-error regime `‖Err‖ ≤ c‖g‖`, the quadratic
+bound linearizes: `1 − A ≤ 2‖Err‖ / (c‖g‖)`. This is the form fed into the Layer-3 assembly
+to obtain `1 − A^(ℓ) ≤ C/√n + C'·δ`. -/
+theorem alignment_perturbation_bound_linear {g G Err : E} {c : ℝ}
+    (hc : 0 < c) (hg : g ≠ 0) (hG : G ≠ 0) (hEq : G = c • g + Err)
+    (hsmall : ‖Err‖ ≤ c * ‖g‖) :
+    1 - cosAngle G g ≤ 2 * ‖Err‖ / (c * ‖g‖) := by
+  have hgn : 0 < ‖g‖ := norm_pos_iff.mpr hg
+  have hd : 0 < c * ‖g‖ := mul_pos hc hgn
+  have hfrac : ‖Err‖ / (c * ‖g‖) ≤ 1 := (div_le_one hd).mpr hsmall
+  have hnn : 0 ≤ 2 * ‖Err‖ / (c * ‖g‖) := div_nonneg (by positivity) hd.le
+  refine (alignment_perturbation_bound hc hg hG hEq).trans ?_
+  calc 2 * ‖Err‖ ^ 2 / (c * ‖g‖) ^ 2
+      = (2 * ‖Err‖ / (c * ‖g‖)) * (‖Err‖ / (c * ‖g‖)) := by ring
+    _ ≤ (2 * ‖Err‖ / (c * ‖g‖)) * 1 := mul_le_mul_of_nonneg_left hfrac hnn
+    _ = 2 * ‖Err‖ / (c * ‖g‖) := by ring
+
 end Abstract
 
 /-! ### Frobenius helper lemmas -/
