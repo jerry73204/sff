@@ -91,6 +91,44 @@ theorem centered_sq_sum_eq {s : Finset ι} {U : ι → Ω → ℝ} {α β : ℝ}
   rw [sq_integral_sum_eq hmem hmean hpair, Finset.sum_congr rfl hXsq, Finset.sum_const,
     nsmul_eq_mul]
 
+/-- **Centered sum, variance-additive (general engine).** For a pairwise-independent family
+`W i` (square-integrable) with common mean `α = E[W i]` and second moment `γ = E[W i²]`, the
+centered sum has second moment `|s|·(γ − α²)`:
+
+    E[(Σ_i (W i − α))²] = |s| · (γ − α²).
+
+Generalizes `centered_sq_sum_eq` (take `W i = U i²`): the summands need not be squares, only
+independent across `i`. Used for the off-diagonal-across-directions Gram entries
+`⟨row,v_a⟩⟨row,v_b⟩`. -/
+theorem centered_sum_var_eq {s : Finset ι} {W : ι → Ω → ℝ} {α γ : ℝ}
+    (hmem : ∀ i ∈ s, MemLp (W i) 2 μ)
+    (hindep : Set.Pairwise (s : Set ι) fun i j => IndepFun (W i) (W j) μ)
+    (hmean : ∀ i ∈ s, μ[W i] = α)
+    (hsq : ∀ i ∈ s, μ[fun ω => (W i ω) ^ 2] = γ) :
+    ∫ ω, (∑ i ∈ s, (W i ω - α)) ^ 2 ∂μ = (s.card : ℝ) * (γ - α ^ 2) := by
+  have hpair : Set.Pairwise (s : Set ι)
+      fun i j => IndepFun (fun ω => W i ω - α) (fun ω => W j ω - α) μ := by
+    intro i hi j hj hij
+    exact (hindep hi hj hij).comp (φ := fun x : ℝ => x - α)
+      (ψ := fun x : ℝ => x - α) (by fun_prop) (by fun_prop)
+  have hmemZ : ∀ i ∈ s, MemLp (fun ω => W i ω - α) 2 μ :=
+    fun i hi => (hmem i hi).sub (memLp_const α)
+  have hmeanZ : ∀ i ∈ s, μ[fun ω => W i ω - α] = 0 := by
+    intro i hi
+    rw [integral_sub ((hmem i hi).integrable one_le_two) (integrable_const α),
+      integral_const, hmean i hi]
+    simp
+  have hZsq : ∀ i ∈ s, ∫ ω, (W i ω - α) ^ 2 ∂μ = γ - α ^ 2 := by
+    intro i hi
+    have haem : AEStronglyMeasurable (W i) μ := (hmem i hi).aestronglyMeasurable
+    have hv : Var[W i; μ] = γ - α ^ 2 := by
+      rw [variance_eq_sub (hmem i hi), hmean i hi]; congr 1; exact hsq i hi
+    rw [show (∫ ω, (W i ω - α) ^ 2 ∂μ) = Var[fun ω => W i ω - α; μ] from
+        (variance_of_integral_eq_zero (hmemZ i hi).aemeasurable (hmeanZ i hi)).symm,
+      variance_sub_const haem, hv]
+  rw [sq_integral_sum_eq hmemZ hmeanZ hpair, Finset.sum_congr rfl hZsq, Finset.sum_const,
+    nsmul_eq_mul]
+
 /-- **Jensen / L¹ ≤ L².** On a probability space, the mean absolute value is at most the
 root mean square: `E|D| ≤ √(E[D²])`. Follows from `0 ≤ Var|D| = E[D²] − (E|D|)²`. Turns a
 second-moment bound into a first-moment (expected-deviation) bound. -/
@@ -109,5 +147,25 @@ theorem integral_abs_le_sqrt_integral_sq {D : Ω → ℝ} (hD : MemLp D 2 μ) :
   have hle : (∫ ω, |D ω| ∂μ) ^ 2 ≤ ∫ ω, (D ω) ^ 2 ∂μ := by nlinarith [h]
   calc ∫ ω, |D ω| ∂μ = Real.sqrt ((∫ ω, |D ω| ∂μ) ^ 2) := (Real.sqrt_sq hnn).symm
     _ ≤ Real.sqrt (∫ ω, (D ω) ^ 2 ∂μ) := Real.sqrt_le_sqrt hle
+
+/-- **Jensen for `√` (concavity).** For an integrable nonnegative `F`, the mean of `√F` is at
+most `√` of the mean: `E[√F] ≤ √(E[F])`. Used to turn a Frobenius second-moment bound into an
+expected-operator-norm bound. -/
+theorem integral_sqrt_le_sqrt_integral {F : Ω → ℝ} (hF : Integrable F μ)
+    (hFnn : 0 ≤ᵐ[μ] F) :
+    ∫ ω, Real.sqrt (F ω) ∂μ ≤ Real.sqrt (∫ ω, F ω ∂μ) := by
+  have hYaesm : AEStronglyMeasurable (fun ω => Real.sqrt (F ω)) μ :=
+    Real.continuous_sqrt.comp_aestronglyMeasurable hF.aestronglyMeasurable
+  have hYmem : MemLp (fun ω => Real.sqrt (F ω)) 2 μ := by
+    rw [memLp_two_iff_integrable_sq hYaesm]
+    refine hF.congr ?_
+    filter_upwards [hFnn] with ω hω
+    rw [Real.sq_sqrt hω]
+  have h := integral_abs_le_sqrt_integral_sq hYmem
+  have e1 : ∫ ω, |Real.sqrt (F ω)| ∂μ = ∫ ω, Real.sqrt (F ω) ∂μ :=
+    integral_congr_ae (by filter_upwards with ω; exact abs_of_nonneg (Real.sqrt_nonneg _))
+  have e2 : ∫ ω, (Real.sqrt (F ω)) ^ 2 ∂μ = ∫ ω, F ω ∂μ :=
+    integral_congr_ae (by filter_upwards [hFnn] with ω hω; exact Real.sq_sqrt hω)
+  rwa [e1, e2] at h
 
 end SffProof

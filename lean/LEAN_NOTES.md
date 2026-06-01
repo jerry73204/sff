@@ -100,8 +100,22 @@ row products independent across `k` (via `iIndepFun.comp`), mean-zero → workho
 Σ_k ⟨row_k,v⟩²`, same engine with `U_k = ⟨row_k,v⟩` (rows independent ⇒ projections
 independent). Ensemble carries `σ²`, `m₄`; projected moments `α_v,β_v` are hypotheses.
 
-TODO: general `d_V`-dim `VᵀWᵀWV` (off-diagonal-across-directions covariances) + Frobenius +
-Jensen → full `isotropy_at_init` (`E‖errIso‖_F ≤ K/√n`). Still axiomatized.
+### General `d_V` subspace restriction (`SffProof/Probability/Subspace.lean`)
+
+| Lean theorem | Fact |
+|---|---|
+| `centered_sum_var_eq` (Moments) | general engine: `E[(Σᵢ(Wᵢ−α))²]=\|s\|(γ−α²)`, `Wᵢ` need not be squares |
+| `integral_sqrt_le_sqrt_integral` (Moments) | Jensen for `√`: `E[√F] ≤ √(E[F])`, `F≥0` |
+| `gram_subspace_entry_sq` | entry `(a,b)`: `E[(Σₖ(⟨row,vₐ⟩⟨row,v_b⟩−α))²] = n(γ−α²)` |
+| `gram_subspace_frob_sq` | `E‖VᵀM̃V‖_F² = Σ_{a,b} n(γ_{ab}−α_{ab}²)` |
+| `gram_subspace_frob_le` | Jensen: `E‖VᵀM̃V‖_F ≤ √(Σ_{a,b} n(γ−α²))` |
+| `gram_subspace_isotropy_bound` | **general `isotropy_at_init` closed (expectation):** `≤ d·√(K/n) = O(d/√n)` |
+
+`(VᵀM̃V)_{ab} = Σ_k (⟨row_k,vₐ⟩⟨row_k,v_b⟩ − α_{ab})`, a sum over independent rows (product
+form, via `centered_sum_var_eq`). Sum the `d²` entry second moments (Frobenius), then Jensen.
+With `d_V = o(√n)` the bound is `o(1)`. The deep random-matrix input is now a **theorem** in
+expectation, modulo the within-row joint moments. `isotropy_at_init` field itself still stated
+as the conditional hypothesis; this proves it holds in expectation for this ensemble model.
 
 ## Layer 3 — `SffProof/Main.lean`
 
