@@ -21,6 +21,7 @@ See `design.md` (full spec) and `THEORY.md` (symbol table, single source of trut
 | E | E1 init-scaling | ✅ **isotropy term scales `n^{-1/2}`** (slopes −0.45, −0.53) — validates the Lean random-matrix proof |
 | E | E2 dynamics + probe | ✅ persistence fails — *genuine dynamical anisotropy* (not instability/lr/d_V); motivates Fisher |
 | E | fisher (NGD-FF) | ✅ built; local K-FAC does **not** rescue persistence (cross-layer problem) |
+| E | skip connections (residual/dense) | ✅ **residual SCFF lifts the alignment ceiling AND persists**; dense does not |
 | E | E3 batch/width | ⬜ not started |
 
 Headline Lean result `scff_alignment_at_init` depends only on `[propext, Classical.choice,
@@ -73,6 +74,18 @@ Fisher block cannot control; (ii) the small batches required for `d_V \ll \sqrt 
 Fisher factors rank-deficient (rank `<= B`), so the damped inverse is noisy. Conclusion: local
 natural-gradient preconditioning is insufficient — persistence is fundamentally a cross-layer
 problem.
+
+**Skip-connection finding (method revision).** Since the bottleneck is cross-layer, residual
+and dense skips were tested (`arch.py`, `experiments/e_arch_depth.py`; depth sweep
+`L \in {4,8,16}`). **Residual SCFF works**: at init `1-A` is far lower than plain and the gap
+*widens* with depth (residual 0.14/0.21/0.24 vs plain 0.45/0.57/0.69 at `L=4/8/16`), `Aniso`
+stays small (`M \approx I` by construction, 0.09→0.15 vs plain 0.24→0.43), and alignment
+**persists** under training (`A` 0.79→0.73 vs plain 0.43→0.34). This matches the theory exactly:
+residual `M = \prod(I + \alpha J) \approx I` gives isotropy by construction (no large-`n`
+needed) and a near-frozen kernel (small `\delta`). **Dense does not help** — its downstream
+Jacobian is not near-scalar, so neither init alignment nor persistence improves. Net: the
+cross-layer ceiling that local methods (incl. Fisher) could not lift is removed by a residual
+*architecture*, while the SCFF update stays local and forward-only.
 
 **E1 finding.** `1 - A^{(\ell)} \le C/\sqrt n + C'\delta`. The **isotropy term** (`Aniso`,
 the quantity the Lean `gram_subspace_isotropy_bound` controls) scales as `n^{-1/2}`
