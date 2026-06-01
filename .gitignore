@@ -1,0 +1,19 @@
+# Lean / lake build artifacts and fetched dependencies
+lean/.lake/
+lean/build/
+
+# Python (Track E, later)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Experiment outputs
+empirical/runs/
+empirical/plots/
+*.csv
+!empirical/**/expected_*.csv
+
+# OS / editor
+.DS_Store
+*.swp
