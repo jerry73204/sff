@@ -22,7 +22,7 @@ See `design.md` (full spec) and `THEORY.md` (symbol table, single source of trut
 | E | E2 dynamics + probe | ✅ persistence fails — *genuine dynamical anisotropy* (not instability/lr/d_V); motivates Fisher |
 | E | fisher (NGD-FF) | ✅ built; local K-FAC does **not** rescue persistence (cross-layer problem) |
 | E | skip connections (residual/dense) | ✅ **residual SCFF lifts the alignment ceiling AND persists**; dense does not |
-| E | E3 batch/width | ⬜ not started |
+| E | E3 batch/width | ✅ isotropy term `Aniso ∝ √d_V`; smooth crossover at `d_V≈√n` (not a sharp knee) |
 
 Headline Lean result `scff_alignment_at_init` depends only on `[propext, Classical.choice,
 Quot.sound]` (no `sorryAx`) — fully proven modulo the two bundled analytic hypotheses
@@ -74,6 +74,16 @@ Fisher block cannot control; (ii) the small batches required for `d_V \ll \sqrt 
 Fisher factors rank-deficient (rank `<= B`), so the damped inverse is noisy. Conclusion: local
 natural-gradient preconditioning is insufficient — persistence is fundamentally a cross-layer
 problem.
+
+**E3 finding (batch/width validity boundary).** The theory holds while `d_V = o(\sqrt n)`.
+Sweeping batch `B` at fixed `n=512` (`\sqrt n \approx 22.6`): in linear mode `d_V` is capped at
+`\min(B, d_{in})`, so `d_{in}=64 > \sqrt n` is needed for `d_V` to reach the threshold. The
+isotropy term then grows as a **smooth power law `Aniso \approx 0.05\,\sqrt{d_V}`** (fitted
+exponent 0.51), passing `\approx 0.25` exactly at `d_V \approx \sqrt n` and climbing beyond. So
+the design's predicted "knee" is in reality a **smooth crossover**, with `\sqrt n` marking where
+the isotropy term reaches `O(0.25)`. Total `1-A` stays flat (`\approx 0.36`, delta-floored, as
+in E1). This maps the validity boundary: width buys isotropy only while the contrastive
+subspace `d_V` stays `\ll \sqrt n`.
 
 **Skip-connection finding (method revision).** Since the bottleneck is cross-layer, residual
 and dense skips were tested (`arch.py`, `experiments/e_arch_depth.py`; depth sweep
