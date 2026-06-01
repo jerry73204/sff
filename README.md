@@ -19,7 +19,7 @@ See `design.md` (full spec) and `THEORY.md` (symbol table, single source of trut
 | L | Obl 5 headline theorem `scff_alignment_at_init` (`Main.lean`) | ✅ proven, no `sorry` |
 | E | model / scff / gradients / metrics | ✅ built, gradient↔autograd anchor passes (1e-5) |
 | E | E1 init-scaling | ✅ **isotropy term scales `n^{-1/2}`** (slopes −0.45, −0.53) — validates the Lean random-matrix proof |
-| E | E2 dynamics | ✅ run; alignment degrades under linear SCFF training (honest negative for persistence) |
+| E | E2 dynamics + probe | ✅ persistence fails — *genuine dynamical anisotropy* (not instability/lr/d_V); motivates Fisher |
 | E | fisher (NGD-FF), E3 batch/width | ⬜ not started |
 
 Headline Lean result `scff_alignment_at_init` depends only on `[propext, Classical.choice,
@@ -55,6 +55,14 @@ uv run python experiments/e2_dynamics.py       # training dynamics overlay
 ```
 
 Outputs land in `empirical/runs/` (CSV + YAML + verdict) and `empirical/plots/`.
+
+**E2 finding (persistence).** Under SCFF training the alignment `A^{(\ell)}` degrades. The
+probe (`experiments/e2_probe.py`) isolates the cause: weight norms are exactly preserved
+(scale-invariant goodness ⇒ rotational updates — no blow-up), `d_V` stays fixed, and the
+decay is lr-independent. So it is **genuine dynamical anisotropy**: SCFF grows the downstream
+Jacobian's anisotropy on `V` faster than cross-layer Gram alignment improves. The §2.2
+competition resolves against alignment here — a mechanism-identified negative result that
+motivates Fisher/NGD-FF preconditioning (natural gradient counters anisotropy).
 
 **E1 finding.** `1 - A^{(\ell)} \le C/\sqrt n + C'\delta`. The **isotropy term** (`Aniso`,
 the quantity the Lean `gram_subspace_isotropy_bound` controls) scales as `n^{-1/2}`
