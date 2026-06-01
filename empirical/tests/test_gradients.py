@@ -85,6 +85,25 @@ def test_delta_gram_zero_for_equal_reps():
     assert metrics.delta_gram(z, z) == pytest.approx(0.0, abs=1e-9)
 
 
+def test_fisher_high_damp_recovers_grad_direction():
+    """K-FAC natural grad -> ordinary local grad direction as damp -> inf."""
+    from fisher import natural_grad
+    model = MLP(d_in=6, width=10, n_layers=3, act="linear", seed=8)
+    x, x_pos = _batch(seed=9)
+    g = local_grad(model, x, x_pos, 0, tau=0.5).flatten()
+    ng = natural_grad(model, x, x_pos, 0, tau=0.5, damp=1e6).flatten()
+    cos = (g @ ng / (g.norm() * ng.norm())).item()
+    assert cos == pytest.approx(1.0, abs=1e-4)
+
+
+def test_fisher_natural_grad_shape():
+    from fisher import natural_grad
+    model = MLP(d_in=6, width=10, n_layers=3, act="linear", seed=8)
+    x, x_pos = _batch(seed=9)
+    ng = natural_grad(model, x, x_pos, 1, tau=0.5, damp=1e-2)
+    assert ng.shape == model.W[1].shape
+
+
 def test_aniso_zero_for_isotropic():
     """Aniso = 0 when M^T M is a scalar multiple of identity on V."""
     n, dV = 12, 4

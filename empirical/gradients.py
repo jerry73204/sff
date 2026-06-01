@@ -79,13 +79,26 @@ def local_grad_autograd(model, x, x_pos, layer, tau):
     return torch.autograd.grad(g, model.W[layer])[0]
 
 
-def local_grad(model, x, x_pos, layer, tau):
-    """Closed-form local goodness gradient for `layer` (uses ReLU mask if needed)."""
+def local_grad_factors(model, x, x_pos, layer, tau):
+    """The per-sample left factors and shared right factor of grad_{W[layer]} g^(layer):
+    `left_i = (1/tau) D_i ⊙ Pperp_{z_i} s_i`  [B, out],  `y_prev_i = y^(layer-1)_i`  [B, in].
+    The full gradient is `left.T @ y_prev`. Fisher (K-FAC) builds A from y_prev and G_hat
+    from `left` (the *local* goodness gradient, design.md 2.1)."""
     z, y, y_prev, pre = _layer_reps(model, x, layer)
     zp, _, _, _ = _layer_reps(model, x_pos, layer)
+    s, _ = signal(z, zp.detach(), tau)
     y_norm = y.norm(dim=1, keepdim=True)
-    mask = None if model.act_name == "linear" else (pre > 0).float()
-    return local_grad_formula(z, zp.detach(), y_prev, y_norm, tau, mask=mask)
+    proj = (s - z * (z * s).sum(1, keepdim=True)) / y_norm
+    if model.act_name != "linear":
+        proj = proj * (pre > 0).float()
+    left = proj / tau
+    return left, y_prev
+
+
+def local_grad(model, x, x_pos, layer, tau):
+    """Closed-form local goodness gradient for `layer` (uses ReLU mask if needed)."""
+    left, y_prev = local_grad_factors(model, x, x_pos, layer, tau)
+    return left.t() @ y_prev
 
 
 def global_grad(model, x, x_pos, layer, tau):

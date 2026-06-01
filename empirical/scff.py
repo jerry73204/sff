@@ -26,6 +26,16 @@ def scff_step(model, x, x_pos, tau: float, lr: float) -> None:
         model.W[l].add_(lr * grads[l])
 
 
+@torch.no_grad()
+def scff_fisher_step(model, x, x_pos, tau: float, lr: float, damp: float = 1e-2) -> None:
+    """One Fisher-preconditioned (NGD-FF) SCFF update: each layer ascends its local
+    goodness along the K-FAC natural gradient (design.md 2.1 item 3)."""
+    from fisher import natural_grad
+    nats = [natural_grad(model, x, x_pos, l, tau, damp) for l in range(model.n_layers)]
+    for l in range(model.n_layers):
+        model.W[l].add_(lr * nats[l])
+
+
 def total_goodness(model, x, x_pos, tau: float) -> float:
     """Sum of per-layer goodness (diagnostic)."""
     g = 0.0

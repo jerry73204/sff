@@ -20,7 +20,8 @@ See `design.md` (full spec) and `THEORY.md` (symbol table, single source of trut
 | E | model / scff / gradients / metrics | ✅ built, gradient↔autograd anchor passes (1e-5) |
 | E | E1 init-scaling | ✅ **isotropy term scales `n^{-1/2}`** (slopes −0.45, −0.53) — validates the Lean random-matrix proof |
 | E | E2 dynamics + probe | ✅ persistence fails — *genuine dynamical anisotropy* (not instability/lr/d_V); motivates Fisher |
-| E | fisher (NGD-FF), E3 batch/width | ⬜ not started |
+| E | fisher (NGD-FF) | ✅ built; local K-FAC does **not** rescue persistence (cross-layer problem) |
+| E | E3 batch/width | ⬜ not started |
 
 Headline Lean result `scff_alignment_at_init` depends only on `[propext, Classical.choice,
 Quot.sound]` (no `sorryAx`) — fully proven modulo the two bundled analytic hypotheses
@@ -63,6 +64,15 @@ decay is lr-independent. So it is **genuine dynamical anisotropy**: SCFF grows t
 Jacobian's anisotropy on `V` faster than cross-layer Gram alignment improves. The §2.2
 competition resolves against alignment here — a mechanism-identified negative result that
 motivates Fisher/NGD-FF preconditioning (natural gradient counters anisotropy).
+
+**Fisher finding (NGD-FF).** Local K-FAC preconditioning (`fisher.py`,
+`experiments/e2_fisher.py`) does **not** rescue persistence: final `A` is ~unchanged
+(0.23 vs 0.26), and aggressive damping makes it *worse* (`damp=1e-3 -> A~0`). Two reasons:
+(i) the breaking anisotropy is in the *downstream/cross-layer* Jacobian, which a *local*-layer
+Fisher block cannot control; (ii) the small batches required for `d_V \ll \sqrt n` make the
+Fisher factors rank-deficient (rank `<= B`), so the damped inverse is noisy. Conclusion: local
+natural-gradient preconditioning is insufficient — persistence is fundamentally a cross-layer
+problem.
 
 **E1 finding.** `1 - A^{(\ell)} \le C/\sqrt n + C'\delta`. The **isotropy term** (`Aniso`,
 the quantity the Lean `gram_subspace_isotropy_bound` controls) scales as `n^{-1/2}`
