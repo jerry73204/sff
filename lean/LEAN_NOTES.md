@@ -62,7 +62,20 @@ The glue is **softmax stability**, proven elementarily (no calculus):
 | `softmax_sum_eq_one`, `softmax_nonneg`, `softmax_denom_pos` | softmax is a distribution |
 
 This reduces `gram_match` to Gram closeness `ε = ‖scores^(ℓ) − scores^(L)‖_∞ → 0`, the
-remaining random-matrix input. `isotropy_at_init` still fully axiomatized.
+remaining random-matrix input.
+
+### Probability scaffolding (`SffProof/Probability/Moments.lean`)
+
+Foundation for `isotropy_at_init` (expectation mode). Over a probability space:
+
+| Lean theorem | Fact |
+|---|---|
+| `integral_sum_eq_zero` | `E[Σᵢ Xᵢ] = 0` (linearity, mean-zero) |
+| `sq_integral_sum_eq` | **workhorse**: `E[(Σᵢ Xᵢ)²] = Σᵢ E[Xᵢ²]` for pairwise-independent mean-zero L² |
+
+`sq_integral_sum_eq` = Mathlib `IndepFun.variance_sum` ∘ `variance_of_integral_eq_zero`.
+It is the tool the keystone (entrywise 2nd moment of `VᵀWᵀWV − I`) is built on.
+`isotropy_at_init` itself still axiomatized.
 
 ## Layer 3 — `SffProof/Main.lean`
 
