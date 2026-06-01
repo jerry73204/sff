@@ -87,6 +87,14 @@ Jacobian is not near-scalar, so neither init alignment nor persistence improves.
 cross-layer ceiling that local methods (incl. Fisher) could not lift is removed by a residual
 *architecture*, while the SCFF update stays local and forward-only.
 
+**Residual scale & ReLU (`experiments/e_residual_alpha.py`, L=8).** The alignment deficit is
+**linear in the residual scale**: `1-A \approx Aniso \approx O(\alpha)` (matches
+`M = I + \alpha\sum J`). `\alpha \le 0.1` gives near-perfect, persistent alignment
+(`1-A < 0.03`, final `A > 0.97`); `\alpha = 1` recovers plain-like behavior. The common
+`1/\sqrt L \approx 0.35` scaling is **too large** for alignment (final `A` only ~0.73) — want
+`~1/L` or smaller. **ReLU residual holds** (same trend, slightly better at small `\alpha`):
+`M = \prod(I + \alpha D J) \approx I` survives the nonlinearity.
+
 **E1 finding.** `1 - A^{(\ell)} \le C/\sqrt n + C'\delta`. The **isotropy term** (`Aniso`,
 the quantity the Lean `gram_subspace_isotropy_bound` controls) scales as `n^{-1/2}`
 empirically (slopes −0.45, −0.53, both in the accept band) — the Lean theorem validated.
