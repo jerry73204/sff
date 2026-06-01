@@ -154,6 +154,13 @@ as the conditional hypothesis; this proves it holds in expectation for this ense
 | Lean theorem | Obligation | Fact |
 |---|---|---|
 | `scff_alignment_at_init` | 5 | feed Layer-2 hypotheses into Obl 4 (linear) ⇒ `1 − A^(ℓ) ≤ 2K/(c‖∇g‖)·(1/√n) + 2/(c‖∇g‖)·δ` |
+| `scff_alignment_at_init_expectation` | bridge | random `g,G,Err`: `E‖Err‖ ≤ K/√n+δ` ⇒ `E[1−A^(ℓ)] ≤ (2/(c·g₀))(K/√n+δ)` |
+
+**Structural bridge.** `scff_alignment_at_init_expectation` integrates the pointwise Layer-1
+linear perturbation bound to give the headline *in expectation* from a bound on `E‖Err‖` —
+exactly what the random-matrix program proves (`E‖errIso‖ ≤ K/√n` via
+`gram_subspace_isotropy_bound`, `E‖errGram‖ ≤ δ` via Gram-entry concentration + softmax
+linearization). `#print axioms` → `[propext, Classical.choice, Quot.sound]`, no `sorryAx`.
 
 (Obligation 4 `alignment_perturbation_bound` + its linear corollary
 `alignment_perturbation_bound_linear` are proven in Layer 1 / `Skeleton.lean`.)
