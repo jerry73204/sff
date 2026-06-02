@@ -133,6 +133,7 @@ Every attempt to close the local↔BP gap, scored against the cross-layer-`δ` d
 |---|---|---|---|
 | **residual skips** | architecture | ✅ **winner** | `M = ∏(I+αJ) ≈ I` → isotropy + frozen kernel; cheap; proven `Aniso=O(α)` |
 | **auxiliary depth** (LoCo look-ahead) | objective | ✅ works (plain) | local objective *sees* downstream `M`; substitute for residual, costs locality |
+| **predictive coding** (settling) | dynamics (biological) | ✅ recovers BP | settling propagates the output error down the hierarchy = cross-layer feedback by construction |
 | local Fisher (NGD-FF) | optimizer | ❌ | breaking anisotropy is cross-layer; small-batch Fisher rank-deficient |
 | forward-gradient-on-`V` | training rule | ❌ | `δ` defeats it both ways (redundant in residual regime, too weak in plain) |
 | per-block LayerNorm | normalization | ❌ | no purchase on the directional kernel `δ` lives in |
@@ -140,8 +141,34 @@ Every attempt to close the local↔BP gap, scored against the cross-layer-`δ` d
 
 **The unifying principle.** Everything that *works* injects cross-layer information — residual
 makes the downstream operator `M` trivial (`≈I`); auxiliary depth makes the local objective
-*see* `M`. Everything that *fails* is purely local or attacks the wrong quantity. The gap is
-cross-layer; the clean fix is the residual architecture.
+*see* `M`; predictive-coding settling propagates the error down. Everything that *fails* is
+purely local or attacks the wrong quantity. The gap is cross-layer; the clean fix is the
+residual architecture.
+
+## Biological grounding (verified survey)
+
+Among backprop-free rules, the most biologically-supported framework is **NGRAD** (Neural
+Gradient Representation by Activity Differences; Lillicrap et al. 2020, *Nat Rev Neurosci*):
+cortex approximates gradient descent via **top-down feedback that nudges lower-level activity**
+plus local Hebbian updates — backprop is implausible because of *weight transport* (Crick 1989;
+Lillicrap et al. 2016). **Predictive coding** is its best concrete instance (Whittington &
+Bogacz 2017): local `ε·activity` updates approximate backprop.
+
+We reproduced it (`pc.py`, `experiments/pc_alignment.py`): a PC network's local update aligns
+with the BP gradient, and **the alignment propagates one layer down per settling step** — at
+`T=0` only the output layer is aligned (cos 1.0, all hidden 0); by `T≈depth` every layer reaches
+cos ≈ 0.98–1.0. **Settling IS the cross-layer feedback.** (Honest nuance: over-settling with a
+hard-clamped target drifts off BP; the PC=BP regime is `T≈depth`.) So the *biologically-grounded*
+mechanism closes exactly the gap SCFF's pure-local rule cannot — and the **top-down feedback our
+results find necessary maps onto the verified biological signature: cortico-cortical feedback
+that alters activity** (apical-dendrite / NGRAD). (Caveat: the survey could *not* verify the
+detailed cortical-microcircuit / prediction-error-neuron evidence — real literature, but
+unvouched here.)
+
+This makes the unifying principle a biological one: **credit assignment, in brains and in our
+experiments, needs cross-layer top-down feedback** — supplied by settling (PC), by `M≈I`
+(residual), or by look-ahead (aux-depth). SCFF without it is both biologically and
+computationally the weak corner.
 
 ## The honest headline
 
