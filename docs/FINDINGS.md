@@ -136,6 +136,7 @@ Every attempt to close the local↔BP gap, scored against the cross-layer-`δ` d
 | **predictive coding** (settling) | dynamics (biological) | ✅ recovers BP | settling propagates the output error down the hierarchy = cross-layer feedback by construction |
 | local Fisher (NGD-FF) | optimizer | ❌ | breaking anisotropy is cross-layer; small-batch Fisher rank-deficient |
 | forward-gradient-on-`V` | training rule | ❌ | `δ` defeats it both ways (redundant in residual regime, too weak in plain) |
+| direct feedback (DFA-style) | training rule | ❌ | random feedback adds noise; FA "learn-to-align" doesn't materialize for SCFF here |
 | per-block LayerNorm | normalization | ❌ | no purchase on the directional kernel `δ` lives in |
 | dense skips | architecture | ❌ | downstream Jacobian not near-scalar |
 
@@ -144,6 +145,14 @@ makes the downstream operator `M` trivial (`≈I`); auxiliary depth makes the lo
 *see* `M`; predictive-coding settling propagates the error down. Everything that *fails* is
 purely local or attacks the wrong quantity. The gap is cross-layer; the clean fix is the
 residual architecture.
+
+**Sharper: there is no cheap *update-rule* trick.** Three attempts to inject the cross-layer
+signal via the weight update — local Fisher, forward-gradient-on-`V`, and direct random feedback
+(DFA) — all fail or add noise. The mechanisms that work either *pay* for the feedback (PC's
+`K≈depth` settling; aux-depth's `j`-deep look-ahead) or move it into the *architecture* (residual,
+`O(1)` and free). Biology pays the cost (recurrent settling / dendritic compartments / continuous
+feedback); residual is the engineering shortcut that is free precisely *because* it is structural,
+not a clever gradient.
 
 ## Biological grounding (verified survey)
 
