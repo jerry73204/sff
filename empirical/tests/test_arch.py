@@ -94,3 +94,55 @@ def test_measure_blocks(a):
     for (l, Aval, dg, an, dV) in rows:
         assert -1.0 - 1e-9 <= Aval <= 1.0 + 1e-9
         assert dg >= 0.0 and an >= 0.0 and dV >= 0
+
+
+def test_norm_default_off_is_unchanged():
+    """norm defaults to False and reproduces the un-normalized forward exactly."""
+    m0 = ArchMLP(d_in=8, width=16, n_layers=4, arch="plain", act="linear", seed=1)
+    m1 = ArchMLP(d_in=8, width=16, n_layers=4, arch="plain", act="linear", seed=1,
+                 norm=False)
+    assert m0.norm is False
+    for y0, y1 in zip(m0(_x()), m1(_x())):
+        assert torch.allclose(y0, y1, atol=1e-12)
+
+
+def test_norm_layernorm_standardizes_block_output():
+    """With norm=True each block output is mean~0, std~1 per sample (parameter-free LN)."""
+    m = ArchMLP(d_in=8, width=64, n_layers=4, arch="plain", act="linear", seed=2,
+                norm=True)
+    ys = m(_x())
+    for y in ys[1:]:                       # blocks (stem ys[0] is not LN'd)
+        assert y.mean(dim=1).abs().max().item() < 1e-6
+        assert (y.std(dim=1, unbiased=False) - 1.0).abs().max().item() < 1e-3
+
+
+def test_norm_local_grad_finite_and_shaped():
+    """LayerNorm local goodness grad (autograd) is finite and W-shaped, all archs/acts."""
+    x, xp = _x(), _x(seed=20)
+    for arch in ("plain", "residual", "dense"):
+        for act in ("linear", "relu"):
+            m = ArchMLP(d_in=8, width=16, n_layers=4, arch=arch, act=act, seed=3,
+                        norm=True)
+            gl = A.local_grad(m, x, xp, layer=1, tau=0.5)
+            assert gl.shape == m.W[1].shape and torch.isfinite(gl).all()
+
+
+def test_norm_local_grad_matches_independent_autograd():
+    """Anchor: harness autograd local grad == an independently-built autograd grad of
+    the same LN block-local goodness, to 1e-10 (linear)."""
+    from gradients import local_goodness
+    from model import normalize
+    x, xp = _x(), _x(seed=21)
+    m = ArchMLP(d_in=8, width=16, n_layers=4, arch="plain", act="linear", seed=4,
+                norm=True)
+    layer, tau = 1, 0.5
+    with torch.no_grad():
+        ys = [y.detach() for y in m(x)]
+        ysp = [y.detach() for y in m(xp)]
+    W = m.W[layer]
+    z = normalize(m._ln(ys[layer] @ W.t()))
+    with torch.no_grad():
+        zp = normalize(m._ln(ysp[layer] @ W.t()))
+    gref = torch.autograd.grad(local_goodness(z, zp.detach(), tau), W)[0]
+    gl = A.local_grad(m, x, xp, layer, tau)
+    assert torch.allclose(gl, gref, atol=1e-10)

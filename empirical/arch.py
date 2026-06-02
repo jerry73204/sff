@@ -8,6 +8,12 @@ ArchMLP: stem (d_in->width) then L blocks at fixed width.
   dense     y^l = act(W^l concat(y^0,...,y^{l-1}))
 forward returns [y0=stem(x), y1, ..., yL].
 
+With norm=True, each block output passes through a parameter-free LayerNorm
+`(y-mean)/std` (per sample, over the width) before the next block sees it. This is
+the kernel-drift (delta) probe of docs/FINDINGS.md gap #3: does normalization, which
+real nets use, cut the cross-layer delta that plain MLPs exhibit? norm=False (default)
+is exactly the original behavior (the 30 anchor tests stay green).
+
 The local goodness gradient uses autograd (block_output); the downstream Jacobian uses
 autograd (forward_from). Both are arch-agnostic. metrics.* and gradients.{global_grad,
 alignment_cosine,local_goodness,signal} are reused unchanged (arch-agnostic).
@@ -24,12 +30,13 @@ import metrics
 
 class ArchMLP(nn.Module):
     def __init__(self, d_in, width, n_layers, arch="plain", act="linear",
-                 alpha=None, seed=None):
+                 alpha=None, seed=None, norm=False):
         super().__init__()
         assert arch in ("plain", "residual", "dense")
         assert act in ("linear", "relu")
         self.arch, self.act_name = arch, act
         self.width, self.n_layers = width, n_layers
+        self.norm = norm
         self.alpha = (1.0 / math.sqrt(n_layers)) if alpha is None else alpha
         if seed is not None:
             torch.manual_seed(seed)
@@ -45,12 +52,21 @@ class ArchMLP(nn.Module):
     def act(self, t):
         return t if self.act_name == "linear" else torch.relu(t)
 
+    def _ln(self, y, eps=1e-5):
+        """Parameter-free LayerNorm: (y-mean)/std per sample over the width.
+        Identity (returns y) when norm=False."""
+        if not self.norm:
+            return y
+        mu = y.mean(dim=1, keepdim=True)
+        var = y.var(dim=1, unbiased=False, keepdim=True)
+        return (y - mu) / torch.sqrt(var + eps)
+
     def _block(self, ys, l):
         if self.arch == "plain":
-            return self.act(ys[-1] @ self.W[l].t())
+            return self._ln(self.act(ys[-1] @ self.W[l].t()))
         if self.arch == "residual":
-            return ys[-1] + self.alpha * self.act(ys[-1] @ self.W[l].t())
-        return self.act(torch.cat(ys, dim=1) @ self.W[l].t())   # dense
+            return self._ln(ys[-1] + self.alpha * self.act(ys[-1] @ self.W[l].t()))
+        return self._ln(self.act(torch.cat(ys, dim=1) @ self.W[l].t()))   # dense
 
     def forward(self, x):
         ys = [self.act(x @ self.stem.t())]
@@ -64,11 +80,11 @@ class ArchMLP(nn.Module):
         with torch.no_grad():
             ys = [y.detach() for y in self.forward(x)]
         if self.arch == "plain":
-            out = self.act(ys[layer] @ self.W[layer].t())
+            out = self._ln(self.act(ys[layer] @ self.W[layer].t()))
         elif self.arch == "residual":
-            out = ys[layer] + self.alpha * self.act(ys[layer] @ self.W[layer].t())
+            out = self._ln(ys[layer] + self.alpha * self.act(ys[layer] @ self.W[layer].t()))
         else:  # dense
-            out = self.act(torch.cat(ys[:layer + 1], dim=1) @ self.W[layer].t())
+            out = self._ln(self.act(torch.cat(ys[:layer + 1], dim=1) @ self.W[layer].t()))
         return normalize(out)
 
     def forward_from(self, start, y_start, frozen):
