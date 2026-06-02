@@ -170,6 +170,29 @@ experiments, needs cross-layer top-down feedback** — supplied by settling (PC)
 (residual), or by look-ahead (aux-depth). SCFF without it is both biologically and
 computationally the weak corner.
 
+## Memory & IO footprint (measured)
+
+The practical case for forward-only training is memory and IO, not accuracy. The dominant
+training cost is **activation memory** (forward activations retained for the backward pass).
+Measured (`experiments/memory_footprint.py`, via `saved_tensors_hooks`, n=256, B=64, ReLU):
+
+| depth `L` | BP | greedy SCFF | greedy residual | BP / SCFF |
+|---|---|---|---|---|
+| 8 | 2.46 MB | 0.41 MB | 0.54 MB | 6× |
+| 32 | 10.32 MB | 0.41 MB | 0.54 MB | 25× |
+| 64 | 20.81 MB | 0.41 MB | 0.54 MB | **51×** |
+
+**BP grows linearly with depth (`O(L·B·n)` — stores every layer); forward-only SCFF is flat
+(`O(B·n)`, depth-independent).** Residual adds a tiny constant and stays flat. So residual-SCFF
+keeps the FF memory win *and* the alignment fix.
+
+IO/communication (asymptotic): forward-only SCFF needs **1× activation traffic** (vs BP's 2×),
+**no weight transport** (no `Wᵀ` backward path), and is **layer-parallel** (no backward-lock) with
+purely local updates. Among the gap-closers, **only residual preserves this profile** — aux-depth
+holds `O(jBn)` and breaks layer-parallelism; predictive coding holds `O(LBn)` and pays `T×` compute
+(settling). So for *practical* BP-free training, residual-SCFF is uniquely positioned: it is the
+one cross-layer-feedback mechanism that is free (architecture, not stored activations or settling).
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
