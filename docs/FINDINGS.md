@@ -263,10 +263,37 @@ Three results overturn a naive "more alignment → more accuracy" reading:
    stop-grad on still-changing downstream weights). Costs more, aligns better, performs worse.
 
 **Revision implication.** The architecture question is settled — residual, `α∈[0.1,0.4]`; do not
-chase `A=1.0`. The remaining gap to supervised BP (0.888 vs 0.944) is **not** closed by more
-cross-layer alignment (both `A=1.0` routes plateau or hurt) — it is the **objective** (contrastive
-self-supervised vs cross-entropy supervised). The next lever is the local objective, not the
-downstream Jacobian.
+chase `A=1.0`. The remaining gap to supervised BP is **not** closed by more cross-layer alignment
+(both `A=1.0` routes plateau or hurt). We then tested the last lever — the objective — below.
+
+### The objective is a sliver; the rest is global credit assignment (diagnostic)
+
+The one untested lever was the local *objective*: SCFF's self-supervised contrastive goodness vs
+supervised cross-entropy. We gave SCFF a **local supervised** objective — each block a linear head
+trained on labels, stop-grad between blocks (still forward-only, local, no weight transport;
+`experiments/objective_lever.py`):
+
+| method | objective | arch | probe acc |
+|---|---|---|---|
+| supervised-BP | global CE, backprop | plain | **0.944** |
+| plain local-supervised | per-block CE, local | plain | 0.903 |
+| residual local-supervised | per-block CE, local | residual | 0.896 |
+| residual-SCFF | contrastive self-sup, local | residual | 0.885 |
+
+1. **The objective buys ~1–2 pts** (local-CE 0.903 vs contrastive 0.885) — a sliver, not the gap.
+2. **A ~4–5 pt gap to supervised-BP persists** under the best local objective *and* arch. So the
+   gap decomposes: ~1–2 pt objective, **~4–5 pt genuinely global credit assignment**. Backprop's
+   end-to-end error flow does something no local rule (contrastive or supervised) and no
+   architecture recovers.
+3. **Residual stops helping under supervision** (plain local-sup 0.903 > residual 0.896): the
+   residual win was specific to *conditioning a weak self-supervised signal*; a strong local CE
+   objective does not need it.
+
+**Conclusion.** Best BP-free recipe on MNIST ≈ **0.90** (residual-contrastive or plain
+local-supervised — both forward-only, local, `51×` memory win). The residual **~4–5 pt** gap to
+backprop is the **price of locality**: global credit assignment is doing real work, independent of
+objective and architecture, and is not closed by the levers we have. (Matched 12-epoch/Adam budget,
+MLP/MNIST, single seed — real under matched compute, not proven fundamental.)
 
 ## The honest headline
 
