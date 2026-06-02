@@ -10,7 +10,6 @@ dependencies = [
     "pyyaml",
     "pytest",
     "scikit-learn>=1.7.2",
-    "torchvision>=0.27.0",
 ]
 
 [tool.uv]
