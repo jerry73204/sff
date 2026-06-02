@@ -237,6 +237,37 @@ Caveats: single seed; MNIST + MLP scale (not CIFAR/conv); the BP-contrastive bas
 (the contrastive objective trained end-to-end with the concat-probe undertrains — supervised-BP
 is the meaningful upper bound); probe on concatenated features.
 
+### The alignment cosine is necessary but NOT sufficient (diagnostic)
+
+We probed the hypothesized *alignment ↔ expressivity* tension — that small-`α` residual aligns by
+going lazy (`M≈I`) and might cap accuracy (`experiments/diag_tension.py`, same MNIST harness):
+
+| residual α | acc | `A` |   | aux-depth `j` | acc | `A` |
+|---|---|---|---|---|---|---|
+| 0.05 | 0.887 | 1.00 | | 1 | 0.719 | 0.71 |
+| 0.10 | 0.886 | 1.00 | | 2 | 0.666 | 0.93 |
+| 0.40 | 0.888 | 0.92 | | 3 | 0.662 | 1.00 |
+| 0.70 | 0.887 | 0.61 | | (plain `j=0`: 0.577, `A`=0.61) |
+| 1.00 | 0.872 | 0.62 | | | | |
+
+Three results overturn a naive "more alignment → more accuracy" reading:
+
+1. **No lazy cap.** Residual accuracy is flat (~0.887) across `α=0.05→0.7` while `A` falls `1.0→0.61`.
+   The best-*accuracy* `α` (0.40) beats the best-*alignment* `α` (0.05) by +0.001 — noise. The
+   small-`α` lazy regime does not cost accuracy; only `α=1.0` (where `M` stops being `≈I`) hurts.
+2. **`A` is not sufficient — architecture matters more.** plain-SCFF `A=0.61 → 0.577` vs
+   residual `α=0.7` `A=0.61 → 0.887`: *same measured alignment, +0.31 accuracy.* The residual win
+   is partly the skip connection's trainability/conditioning, not the instantaneous alignment cosine.
+3. **Aux-depth is dominated.** Look-ahead `j=1` (0.719) beats plain but loses to residual; `j=2,3`
+   *lose* accuracy (0.666, 0.662) **even as `A→1.0`** (stale-downstream / moving-target from the
+   stop-grad on still-changing downstream weights). Costs more, aligns better, performs worse.
+
+**Revision implication.** The architecture question is settled — residual, `α∈[0.1,0.4]`; do not
+chase `A=1.0`. The remaining gap to supervised BP (0.888 vs 0.944) is **not** closed by more
+cross-layer alignment (both `A=1.0` routes plateau or hurt) — it is the **objective** (contrastive
+self-supervised vs cross-entropy supervised). The next lever is the local objective, not the
+downstream Jacobian.
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
