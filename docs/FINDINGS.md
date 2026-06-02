@@ -125,6 +125,24 @@ InfoNCE goodness there. `j=0` = vanilla SCFF.
   forward-gradient + local losses) were **not verifiable** in the survey and should be read
   directly before asserting full novelty.
 
+## Gap-closing scorecard
+
+Every attempt to close the local↔BP gap, scored against the cross-layer-`δ` diagnosis:
+
+| approach | type | verdict | why |
+|---|---|---|---|
+| **residual skips** | architecture | ✅ **winner** | `M = ∏(I+αJ) ≈ I` → isotropy + frozen kernel; cheap; proven `Aniso=O(α)` |
+| **auxiliary depth** (LoCo look-ahead) | objective | ✅ works (plain) | local objective *sees* downstream `M`; substitute for residual, costs locality |
+| local Fisher (NGD-FF) | optimizer | ❌ | breaking anisotropy is cross-layer; small-batch Fisher rank-deficient |
+| forward-gradient-on-`V` | training rule | ❌ | `δ` defeats it both ways (redundant in residual regime, too weak in plain) |
+| per-block LayerNorm | normalization | ❌ | no purchase on the directional kernel `δ` lives in |
+| dense skips | architecture | ❌ | downstream Jacobian not near-scalar |
+
+**The unifying principle.** Everything that *works* injects cross-layer information — residual
+makes the downstream operator `M` trivial (`≈I`); auxiliary depth makes the local objective
+*see* `M`. Everything that *fails* is purely local or attacks the wrong quantity. The gap is
+cross-layer; the clean fix is the residual architecture.
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
