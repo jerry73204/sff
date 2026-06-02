@@ -76,6 +76,24 @@ architecturally:
 - **Proven**: `residual_isotropy` (`‖MᵀM−1‖ ≤ 2‖E‖+‖E‖²`) is the deterministic `Aniso=O(α)`
   law — turns the empirical win into a theorem, no random matrix, no `o(√n)`.
 
+## A second gap-closer — auxiliary downstream depth (LoCo-style)
+
+Train block `ℓ`'s goodness `j` layers downstream (look-ahead): push `y^(ℓ)` through the next
+`j` blocks (their weights detached → still a strictly local `W^(ℓ)` update) and compute the
+InfoNCE goodness there. `j=0` = vanilla SCFF.
+
+- On **plain** nets (the hard case), each look-ahead layer ~halves init `1−A`
+  (0.476 → 0.258 → 0.131 for `j=0,1,2` at `L=6`) and roughly doubles persisted alignment
+  (final `A` 0.288 → 0.473 → 0.589). Monotone in `j`.
+- Mechanism: folding `j` downstream blocks into the local objective makes the local gradient
+  *see* the downstream operator `M` that BP applies — the same cross-layer lever as residual,
+  but by *seeing* `M` rather than making `M≈I`.
+- **Substitute, not additive**: on residual (`α=0.1`, `M≈I`, `A≈0.98`) look-ahead adds almost
+  nothing. Cost: `(1+j)×` forward depth per gradient, and it **erodes the FF locality /
+  parallelism value-prop** (a block can't update until `j` downstream blocks run).
+- Verdict: a real gap-closer where residual isn't available; buys back the locality it was
+  meant to save.
+
 ## Negative results (honest, mechanism understood)
 
 - **Local Fisher (NGD-FF)** does not rescue persistence — cross-layer problem + rank-deficient
@@ -87,6 +105,11 @@ architecturally:
   (residual) the estimate is redundant noise; where a correction is needed (plain/deep, low
   `A`) the *local* subspace `V` captures only ~⅓ of the global gradient. The same `δ` coupling
   defeats it both ways.
+- **Per-block LayerNorm** does not cut `δ` or `1−A` (linear: change ≤0.006, within seed noise;
+  ReLU: *worsens* both, `δ` 0.114→0.258 at `L=16`). `δ` is measured on the L2-normalized reps
+  `z=y/‖y‖`, whose scale is already removed; LayerNorm standardizes mean/variance but not the
+  *directional* kernel structure `δ` captures. **Resolves gap #3 below negatively: `δ` is an
+  intrinsic depth effect, not a normalization artifact of plain MLPs.**
 
 ## Relation to prior work (verified survey)
 
@@ -116,7 +139,8 @@ not beat it.
    35.67%).
 2. **Scale + regime.** Toy widths/depths/batches, synthetic data; the theory lives in
    `B ≪ √n`, `d_V = o(√n)`, which practical batch sizes likely violate.
-3. **Linear-primary, no normalization.** `δ` may be partly an artifact of plain MLPs without
-   LayerNorm/BatchNorm, which already control kernel drift in real nets.
+3. **Linear-primary.** Results are linear-mode primary; ReLU is lightly tested. (The
+   "`δ` is a no-normalization artifact" hypothesis is **resolved negatively** — per-block
+   LayerNorm does not cut `δ`; see Negative results.)
 4. **The FF value-prop untouched.** Memory (no stored activations), locality, parallelism —
    none measured; only the alignment proxy.
