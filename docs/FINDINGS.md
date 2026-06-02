@@ -214,6 +214,29 @@ holds `O(jBn)` and breaks layer-parallelism; predictive coding holds `O(LBn)` an
 (settling). So for *practical* BP-free training, residual-SCFF is uniquely positioned: it is the
 one cross-layer-feedback mechanism that is free (architecture, not stored activations or settling).
 
+## Real-data accuracy — the alignment win transfers (gap #1, addressed)
+
+Does the gradient-alignment win produce a *trained-model* win? Measured (`experiments/
+task_accuracy.py`, MNIST 6000/1000, MLP width 256 / `L=4` ReLU, self-supervised contrastive
+pretraining → linear probe on concatenated block features):
+
+| method | probe acc | alignment `A` |
+|---|---|---|
+| supervised-BP (cross-entropy, upper bound) | **0.944** | — |
+| **residual-SCFF** (forward-only, local) | **0.887** | **1.00** |
+| plain-SCFF (forward-only, local) | 0.596 | 0.70 |
+| BP-contrastive (end-to-end, same objective) | 0.276 | 0.49 |
+
+**The alignment fix buys +29 accuracy points** (residual-SCFF 0.887 vs plain-SCFF 0.596), and
+`A` tracks accuracy across methods (1.0→0.89, 0.70→0.60, 0.49→0.28). Residual-SCFF — forward-only,
+local, `51×` less memory — lands **within ~6 points of supervised BP** (0.944). So the
+gradient-alignment characterization is not just a proxy: closing the cross-layer gap (residual)
+closes most of the real-data accuracy gap too.
+
+Caveats: single seed; MNIST + MLP scale (not CIFAR/conv); the BP-contrastive baseline is weak
+(the contrastive objective trained end-to-end with the concat-probe undertrains — supervised-BP
+is the meaningful upper bound); probe on concatenated features.
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
@@ -223,9 +246,9 @@ not beat it.
 
 ## Gaps to practical training
 
-1. **Alignment ≠ accuracy.** We measure a proxy (gradient alignment to BP), not a trained
-   model. SCFF's own numbers show the real gap (CIFAR-10 80.75% vs BP >90%; Tiny-ImageNet
-   35.67%).
+1. ~~Alignment ≠ accuracy.~~ **Addressed** (see "Real-data accuracy" above): on MNIST the
+   alignment win transfers — residual-SCFF reaches 0.887 (within ~6 pts of supervised BP)
+   vs plain-SCFF 0.596. Remaining: larger scale (CIFAR/conv), multi-seed.
 2. **Scale + regime.** Toy widths/depths/batches, synthetic data; the theory lives in
    `B ≪ √n`, `d_V = o(√n)`, which practical batch sizes likely violate.
 3. **Linear-primary.** Results are linear-mode primary; ReLU is lightly tested. (The
