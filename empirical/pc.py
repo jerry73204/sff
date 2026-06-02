@@ -53,16 +53,23 @@ class PCNet:
 
     def pc_update(self, x0, target, T, beta=0.1):
         """PC weight change ΔW^(ℓ) = ε^(ℓ) f(x^(ℓ-1))ᵀ after T inference steps. Per W[i]."""
+        return self.pc_update_fb(x0, target, self.W, T, beta)
+
+    def pc_update_fb(self, x0, target, Bfb, T, beta=0.1):
+        """PC update where the top-down (apical) feedback uses SEPARATE feedback weights
+        Bfb[l] (same shape as W[l]) instead of the forward weights — the dendritic-microcircuit
+        picture (feedback carried by distinct, possibly learned/interneuron weights). Bfb = W
+        is the symmetric (exact) case; random Bfb is the feedback-alignment case."""
         xs = [x.clone() for x in self.feedforward(x0)]
-        xs[-1] = target.clone()                       # clamp output
+        xs[-1] = target.clone()
         for _ in range(T):
             eps = self._errors(xs)
             new = [x.clone() for x in xs]
-            for l in range(1, self.L):                # hidden nodes only
-                topdown = eps[l + 1] @ self.W[l]      # W^(ℓ+1)ᵀ ε^(ℓ+1)
+            for l in range(1, self.L):
+                topdown = eps[l + 1] @ Bfb[l]         # apical feedback via Bfb (≈ W^(ℓ+1))
                 new[l] = xs[l] + beta * (-eps[l] + fp(xs[l]) * topdown)
             xs = new
-            xs[-1] = target                           # keep output clamped
+            xs[-1] = target
         eps = self._errors(xs)
         B = x0.shape[0]
         return [eps[l].t() @ f(xs[l - 1]) / B for l in range(1, self.L + 1)]

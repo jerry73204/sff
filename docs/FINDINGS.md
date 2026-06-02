@@ -174,10 +174,22 @@ that alters activity** (apical-dendrite / NGRAD). (Caveat: the survey could *not
 detailed cortical-microcircuit / prediction-error-neuron evidence — real literature, but
 unvouched here.)
 
+**Dendritic microcircuit** (`pc.py::pc_update_fb`, `experiments/e_dendritic.py`). Dendritic
+credit assignment (Sacramento et al. 2018) carries the apical error via *separate* feedback
+weights, learned by interneuron plasticity to mirror the forward path. Sweeping the feedback
+from random→symmetric, `cos(ΔW, BP)` rises **−0.02 (random / DFA) → 0.48 → 0.89 → 0.985
+(symmetric / PC)**, crossing 0.9 around 75% mirrored. This **reconciles** the two earlier
+results: DFA failed because its feedback is random; PC worked because its feedback is symmetric.
+The dendritic model shows *why*: **the load-bearing ingredient is feedback-weight mirroring** —
+the interneuron plasticity is the biological mechanism for it, and learning it (the weight-mirror
+problem) is the cost.
+
 This makes the unifying principle a biological one: **credit assignment, in brains and in our
 experiments, needs cross-layer top-down feedback** — supplied by settling (PC), by `M≈I`
-(residual), or by look-ahead (aux-depth). SCFF without it is both biologically and
-computationally the weak corner.
+(residual), or by look-ahead (aux-depth) — AND, for any feedback-based rule, the feedback weights
+must *mirror the forward path* (interneuron learning). SCFF without it is both biologically and
+computationally the weak corner. Biology pays twice (propagate through depth + learn the
+feedback mirror); residual sidesteps both by making the path trivial (`M≈I`).
 
 ## Memory & IO footprint (measured)
 
