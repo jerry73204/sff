@@ -295,6 +295,53 @@ backprop is the **price of locality**: global credit assignment is doing real wo
 objective and architecture, and is not closed by the levers we have. (Matched 12-epoch/Adam budget,
 MLP/MNIST, single seed — real under matched compute, not proven fundamental.)
 
+## Geometric decomposition of the BP gradient — the gap is transport, not the negatives
+
+Treating reps as points on the sphere `S^{n-1}`, the SCFF gradient is the **Riemannian (tangent)
+gradient** of a contrastive sphere-energy (`Pperp` projection in `local_grad_formula` is exactly
+the tangent projection). Both gradients split as *positive − negative*; the BP gradient is the
+output-layer signal **pulled back through the downstream map** `M^T` (the cotangent map of the
+inter-layer flow):
+
+```
+g_FF = Pperp( z+_l − Σ_j p^l_ij z_l_j )           (layer-l softmax)
+g_BP = M^T Pperp( z+_L − Σ_j p^L_ij z_L_j )        (output softmax, transported)
+```
+
+so the FF↔BP gap has only two possible sources: **(1) kernel drift** `p^l ≠ p^L` and **(2) transport**
+`M^T` not an isometry (polar `M = QS`; rotation `Q` is free, stretch `S = (M^T M)^{1/2}` is the
+defect; `S = cI` ⟺ isotropy ⟺ alignment). The contrastive force is a *gradient field* and the
+sphere has trivial `H^1`, so there is **no harmonic/topological obstruction** — the gap is a metric
+defect, fixable in principle. We attribute it empirically (`experiments/grad_decomp.py`, tangent-space
+cosine, init vs after 400 SCFF steps on clustered data):
+
+|  | mean `A_full` | `cos_kernel` | shared-kernel gain | mean `aniso` |
+|---|---|---|---|---|
+| plain [init] | 0.382 | 1.000 | −0.001 | 0.65 |
+| plain [trained] | 0.129 | 0.984 | −0.005 | 0.93 |
+| residual [init] | 0.974 | 1.000 | +0.001 | 0.09 |
+| residual [trained] | 0.881 | 1.000 | −0.001 | 0.28 |
+
+1. **Kernel drift is never the problem.** `cos_kernel ≈ 1` init *and* trained; using the output
+   softmax at every layer (a shared/transported kernel) changes alignment by ±0.005 — and is
+   slightly *negative*. **The positives/negatives are already geometrically optimal; re-modeling
+   them cannot help.** (Rules out shared-kernel negatives and EMA/transported positives.)
+2. **The entire gap is transport stretch `S`.** `A_full` is a pure function of `aniso`: plain
+   0.65→A 0.38, residual 0.09→A 0.97.
+3. **Learning *grows* the stretch.** Plain `aniso` 0.65→0.93 under training (A 0.38→0.13);
+   residual 0.09→0.28 (A 0.97→0.88, bounded by `M≈I`). **Feature learning distorts the
+   representation metric → transport stops being an isometry → local↔global alignment decays.**
+
+**This is the geometric mechanism of the price of locality:** to learn useful features a layer must
+distort the metric (anisotropic stretch), but local learning matches BP only when the inter-layer
+map is an isometry — the two pull against each other. Backprop is exempt (it applies the *exact*
+pullback `M^T` through any stretch); local rules cannot, so they pay. Residual does not remove the
+tension — it **bounds** how far learning can push `M` from identity. The only BP-free levers are
+therefore transport-fixers: residual (free, structural — done) or preconditioning by `S` (needs
+`M^T M` = downstream info = weight transport — forbidden). One untried variant: a **local isometry
+penalty** `‖J^l⊤J^l − cI‖` on each block's own Jacobian (local, BP-free, the soft sibling of
+residual) — expected to incur the same expressivity tax.
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
