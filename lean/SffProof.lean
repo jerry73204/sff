@@ -7,6 +7,7 @@ import SffProof.Main
 import SffProof.Softmax
 import SffProof.Normalization
 import SffProof.Residual
+import SffProof.InfoBound
 import SffProof.Probability.Moments
 import SffProof.Probability.RandomMatrix
 import SffProof.Probability.Subspace

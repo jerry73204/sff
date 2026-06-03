@@ -295,6 +295,31 @@ backprop is the **price of locality**: global credit assignment is doing real wo
 objective and architecture, and is not closed by the levers we have. (Matched 12-epoch/Adam budget,
 MLP/MNIST, single seed — real under matched compute, not proven fundamental.)
 
+## The price of locality, proved — an information lower bound (Lean)
+
+The empirical "residual is the unique fix" is now a theorem (`lean/SffProof/InfoBound.lean`,
+sorry-free; full write-up `docs/INFO_BOUND.md`). BP's gradient is the output signal pulled back
+through the downstream stretch `S = (MᵀM)^{1/2}|_V`; a forward-only local rule must estimate it
+**without observing `M`**. In the extreme-eigenvalue plane (eigenvalues `a≥b>0`, condition number
+`κ=a/b`), the **Kantorovich ceiling** caps the squared alignment of any transport-blind rule:
+
+```
+alignCapSq a b = 4ab/(a+b)² = (2√κ/(1+κ))²  ≤  cosSq a b c        (alignment_capped)
+alignCapSq a b = 1  ↔  a = b   (κ=1, isotropy)                     (cap_eq_one_iff_isometry)
+a ≠ b  →  alignCapSq a b < 1                                       (aniso_caps_alignment)
+```
+
+proved via an exact sum-of-squares identity `(a·c+b·(1−c))²(a+b)² − 4ab(a²c+b²(1−c)) =
+((a−b)(a·c−b·(1−c)))²` (`kantorovich_sos`, by `ring`). **Corollary (price of locality):** an expressive
+network has `κ>1` (feature learning *is* metric distortion — `grad_decomp.py` shows `aniso` grows
+`0.65→0.93` under training), so every transport-blind local rule has defect `1−A ≥ (√κ−1)²/(κ+1) > 0`,
+unavoidable without downstream information. Backprop observes `S` (exact pullback `Mᵀ`) and is exempt.
+**Residual is the unique escape:** it forces `κ≈1` *a priori*, zero downstream info, and identity is
+isotropic on every subspace — so it needs neither the eigenbasis nor `V`. (Open: the *dynamical*
+theorem that the goodness gradient grows `κ` over training — `INFO_BOUND.md` §6.) This resolves the
+theoretical gap: the old theory characterized *when* alignment holds (static, geometric); this bounds
+the *information cost* of achieving it locally (why every non-residual local fix failed).
+
 ## Geometric decomposition of the BP gradient — the gap is transport, not the negatives
 
 Treating reps as points on the sphere `S^{n-1}`, the SCFF gradient is the **Riemannian (tangent)
