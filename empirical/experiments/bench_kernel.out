@@ -1,0 +1,10 @@
+kernel correctness + speed (vs torch reference):
+  B=  64 C= 128  maxerr=3.35e-08  kernel=0.0669ms  torch=0.1739ms  speedup=2.60x
+  B= 128 C= 256  maxerr=1.49e-08  kernel=0.2818ms  torch=0.0752ms  speedup=0.27x
+  B= 256 C= 512  maxerr=1.49e-08  kernel=0.6402ms  torch=0.0775ms  speedup=0.12x
+
+peak memory vs depth (SCFF forward-only vs BP):
+  L=  8  SCFF=  198.5MB  BP=  191.7MB  ratio=1.0x
+  L= 16  SCFF=  346.5MB  BP=  327.1MB  ratio=0.9x
+  L= 32  SCFF=  619.7MB  BP=  597.9MB  ratio=1.0x
+  L= 64  SCFF= 1166.0MB  BP= 1139.5MB  ratio=1.0x

@@ -305,6 +305,40 @@ directly); and does a stronger setup (more depth/data/epochs, real augmentation,
 conv backbone) restore the near-BP gap? The MLP claims stand; **the conv claim is, so far, only a
 weak directional transfer — not parity.**
 
+### GPU / real hardware (RTX 5090) — depth-stress, custom kernel, measured memory
+
+We ported SCFF to the GPU with a **hand-written CUDA kernel** (`empirical/cuda/scff_signal.cu`, fused
+InfoNCE signal + tangent projection, forward-only — no autograd graph) and ran a full-CIFAR-10
+deep-conv depth-stress (`experiments/gpu_depth_stress.py`, 50k, 15 epochs, residual `α=1/√L`):
+
+| `L` | supervised-BP | plain-SCFF (`A`) | residual-SCFF (`A`) |
+|---|---|---|---|
+| 4 | 0.757 | 0.229 (0.10) | 0.347 (0.25) |
+| 8 | 0.751 | 0.260 (0.05) | 0.358 (0.21) |
+| 16 | 0.694 | 0.235 (0.10) | 0.359 (0.28) |
+| 32 | **0.383** | 0.269 (0.02) | 0.347 (0.21) |
+
+- Residual-SCFF beats plain at every depth (~+0.10 acc, higher `A`) and is **depth-stable**
+  (0.347→0.359, flat) — confirms the conv directional transfer at full scale.
+- **At `L=32`, plain-conv BP *collapses* to 0.383** (32 layers, no norm/residual → untrainable) while
+  residual-SCFF holds 0.347 — **forward-only nearly matches failing BP at extreme depth.**
+- The big BP gap at shallow `L` persists (the conv bottleneck, diagnosed below as global pooling).
+
+**Custom kernel (`experiments/bench_kernel.py`):** matches the pure-torch reference to `1e-8`. Speed
+vs torch: **2.6× faster at `B=64,C=128`** but **slower at scale** (`0.27×` at `B=128`, `0.12×` at
+`B=256,C=512`) — the naive block-per-sample serial-`j` B×B loop loses to cuBLAS's optimized matmul
+for the `z zᵀ` term. Honest: the hand-kernel is competitive only at small token counts; a
+warp-optimized or cuBLAS-backed version would be needed to win at scale.
+
+**Measured memory (honest correction):** forward-only SCFF vs end-to-end BP peak memory is **~1×**
+at `L=8/16/32/64` (SCFF 198→1166 MB, BP 192→1140 MB) — **not the 51× from the CPU activation-store
+model.** Reason: `scff_local_step` does a *full forward* (holding all `L` activations) before looping
+blocks, so it stores `O(L)` just like BP. **The flat-memory advantage is a property of a greedy
+layer-streaming schedule** (compute block ℓ → update → discard its activations before ℓ+1), which
+this implementation does not realize. The `51×` asymptotic claim stands only for that streaming
+schedule; the naive forward-only loop measured here does not deliver it. A real memory win requires
+implementing the streaming update.
+
 ### The alignment cosine is necessary but NOT sufficient (diagnostic)
 
 We probed the hypothesized *alignment ↔ expressivity* tension — that small-`α` residual aligns by
