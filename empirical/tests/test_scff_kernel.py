@@ -79,3 +79,18 @@ def test_gpu_train_step_improves_goodness():
         scff_local_step(m, x, xp, tau=0.5, lr=0.1)
     g1 = block_goodness(m, x, xp, tau=0.5)
     assert g1 > g0
+
+
+@cuda_only
+def test_spatial_ximg_step_improves_goodness():
+    from gpu_arch import (ConvSCFF, scff_local_step_spatial_ximg, block_goodness_spatial_ximg,
+                          augment_appearance)
+    torch.manual_seed(0)
+    m = ConvSCFF(C=32, n_blocks=3, arch="residual", alpha=0.2).cuda()
+    x = torch.randn(16, 3, 32, 32, device="cuda")
+    xp = augment_appearance(x, 0.06)
+    g0 = block_goodness_spatial_ximg(m, x, xp, tau=0.5)
+    for _ in range(20):
+        scff_local_step_spatial_ximg(m, x, xp, tau=0.5, lr=0.1)
+    g1 = block_goodness_spatial_ximg(m, x, xp, tau=0.5)
+    assert g1 > g0

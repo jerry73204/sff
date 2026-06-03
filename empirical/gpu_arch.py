@@ -95,3 +95,40 @@ def scff_local_step_spatial(model, x, xp, tau, lr):
         with torch.no_grad():
             for p, gp in zip(model.blocks[l].parameters(), grads):
                 p.add_(lr * gp)                           # ascend (s_perp is +dg/dz)
+
+def block_goodness_spatial_ximg(model, x, xp, tau):
+    """Cross-image per-location goodness (over the B images at each location), matching what
+    scff_local_step_spatial_ximg optimizes. For tests/logging."""
+    from cuda.scff_ext import scff_signal
+    ys, ysp = model(x), model(xp)
+    tot = 0.0
+    for l in range(model.n_blocks):
+        z = per_location_tokens(ys[l + 1]); zp = per_location_tokens(ysp[l + 1])
+        for loc in range(z.shape[1]):
+            _, g = scff_signal(z[:, loc, :].contiguous(), zp[:, loc, :].contiguous(), tau)
+            tot += float(g)
+    return tot
+
+def scff_local_step_spatial_ximg(model, x, xp, tau, lr):
+    """Per-location SCFF with CROSS-IMAGE negatives (the SCFF-paper scheme): at each location the
+    kernel runs over the B IMAGES (positive = same image's same location in the aug view; negatives =
+    OTHER images at that location) -> per-location instance discrimination. Loop is over the H*W
+    locations (the kernel's 'batch' = the B images). Backprop through THIS block only."""
+    from cuda.scff_ext import scff_signal
+    with torch.no_grad():
+        ys = [y.detach() for y in model(x)]
+        ysp = [y.detach() for y in model(xp)]
+    for l in range(model.n_blocks):
+        out = model.apply_block(ys[l], l)                 # differentiable wrt block l only
+        z = per_location_tokens(out)                      # [B, HW, C], requires grad
+        zp = per_location_tokens(ysp[l + 1]).detach()     # [B, HW, C]
+        s_perp = torch.empty_like(z)
+        for loc in range(z.shape[1]):                     # over H*W locations
+            z_loc = z[:, loc, :].detach().contiguous()    # [B, C] (B images at this location)
+            zp_loc = zp[:, loc, :].contiguous()           # [B, C]
+            s_loc, _ = scff_signal(z_loc, zp_loc, tau)    # [B, C] per-image signal at this location
+            s_perp[:, loc, :] = s_loc
+        grads = torch.autograd.grad(z, model.blocks[l].parameters(), grad_outputs=s_perp)
+        with torch.no_grad():
+            for p, gp in zip(model.blocks[l].parameters(), grads):
+                p.add_(lr * gp)                           # ascend (s_perp is +dg/dz)

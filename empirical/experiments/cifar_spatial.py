@@ -5,7 +5,7 @@ Run: python experiments/cifar_spatial.py"""
 import os, sys, math, torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gpu_arch import (ConvSCFF, _pooled, scff_local_step, scff_local_step_spatial,
-                      augment_appearance)
+                      scff_local_step_spatial_ximg, augment_appearance)
 from experiments.cifar_conv import load_cifar
 
 DEV = "cuda"
@@ -63,17 +63,20 @@ def main():
     a_bp  = run("supervised-BP",      mk, lambda m: train_bp(m, Xtr, ytr, CFG), Xtr, ytr, Xte, yte)
     a_pool= run("global-pool-SCFF",   mk, lambda m: train_scff(m, Xtr, CFG, scff_local_step),
                 Xtr, ytr, Xte, yte)
-    a_loc = run("per-location-SCFF",  mk, lambda m: train_scff(m, Xtr, CFG, scff_local_step_spatial),
+    a_loc = run("per-location-inimg", mk, lambda m: train_scff(m, Xtr, CFG, scff_local_step_spatial),
+                Xtr, ytr, Xte, yte)
+    a_xim = run("per-location-ximg",  mk, lambda m: train_scff(m, Xtr, CFG, scff_local_step_spatial_ximg),
                 Xtr, ytr, Xte, yte)
     print("\n=== VERDICT (CIFAR-10 linear probe, residual conv) ===")
-    print(f"  supervised-BP      {a_bp:.4f}")
-    print(f"  per-location-SCFF  {a_loc:.4f}")
-    print(f"  global-pool-SCFF   {a_pool:.4f}")
-    print(f"\nspatial fix (per-location - global-pool): {a_loc-a_pool:+.4f}")
-    print(f"remaining gap to BP: {a_bp-a_loc:+.4f}")
-    print("=> " + ("per-location FIXES the conv bottleneck (>> global-pool, toward BP)"
-                   if a_loc - a_pool > 0.05 else
-                   "per-location did not clearly beat global-pool -- investigate"))
+    print(f"  supervised-BP          {a_bp:.4f}")
+    print(f"  per-location-ximg      {a_xim:.4f}   (cross-image negatives)")
+    print(f"  per-location-inimg     {a_loc:.4f}   (in-image negatives)")
+    print(f"  global-pool-SCFF       {a_pool:.4f}")
+    print(f"\ncross-image fix (ximg - global-pool): {a_xim-a_pool:+.4f}")
+    print(f"remaining gap to BP: {a_bp-a_xim:+.4f}")
+    print("=> " + ("cross-image per-location FIXES the conv bottleneck (>> global-pool, toward BP)"
+                   if a_xim - a_pool > 0.05 else
+                   "cross-image per-location did not clearly beat global-pool -- investigate"))
 
 if __name__ == "__main__":
     main()
