@@ -30,6 +30,15 @@ def test_kernel_matches_reference():
         assert abs(float(g_ker) - float(g_ref)) < 1e-2 * max(1.0, abs(float(g_ref)))
 
 
+def test_per_location_tokens_shape_and_norm():
+    from gpu_arch import per_location_tokens
+    y = torch.randn(4, 8, 5, 5)
+    tok = per_location_tokens(y)
+    assert tok.shape == (4, 25, 8)
+    norms = tok.norm(dim=-1)
+    assert torch.allclose(norms, torch.ones(4, 25), atol=1e-5)
+
+
 @cuda_only
 def test_gpu_train_step_improves_goodness():
     from gpu_arch import ConvSCFF, scff_local_step, block_goodness

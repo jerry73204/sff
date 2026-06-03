@@ -4,6 +4,17 @@ import torch, torch.nn as nn, torch.nn.functional as F
 def _pooled(y):
     return F.normalize(y.mean(dim=(2, 3)), dim=1)        # [B,C] on the unit sphere
 
+def per_location_tokens(y):
+    """[B,C,H,W] -> [B, H*W, C] with each location's C-vector L2-normalized (a token on the sphere)."""
+    B, C, H, W = y.shape
+    t = y.permute(0, 2, 3, 1).reshape(B, H * W, C)
+    return F.normalize(t, dim=-1)
+
+def augment_appearance(x, noise):
+    """Appearance-only positive view: additive Gaussian noise, NO spatial transform (so location
+    i<->i corresponds trivially across views)."""
+    return x + noise * torch.randn_like(x)
+
 class ConvSCFF(nn.Module):
     def __init__(self, C=64, n_blocks=8, arch="residual", alpha=0.2, in_ch=3):
         super().__init__()
