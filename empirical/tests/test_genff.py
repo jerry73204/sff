@@ -18,7 +18,7 @@ def test_denoise_increases_manifold_gap():
         gn = sum(h.pow(2).mean().item() for h in hs_n)
         return gr - gn
     g0 = gap(m)
-    train_early_denoise(m, X, dict(epochs=30, batch=32, lr=0.02, sigma=0.5, theta=1.0, seed=0))
+    train_early_denoise(m, X, dict(epochs=30, batch=32, lr=0.6, sigma=0.5, theta=1.0, seed=0))
     assert gap(m) > g0
 
 def test_denoise_is_layer_local():
@@ -47,7 +47,7 @@ def test_head_training_separates_ood_energy():
     torch.manual_seed(0)
     m = GenFFMLP(d_in=20, width=16, n_layers=3)
     X = torch.randn(256, 20); y = torch.randint(0, 5, (256,))
-    train_early_denoise(m, X, dict(epochs=20, batch=64, lr=0.02, sigma=0.5, theta=1.0, seed=0))
+    train_early_denoise(m, X, dict(epochs=20, batch=64, lr=0.6, sigma=0.5, theta=1.0, seed=0))
     head = EnergyHead(16 * 3, 5)
     train_head(m, head, X, y, dict(epochs=40, batch=64, lr=1e-2, lam=0.1, sigma=0.5, seed=0))
     fe_real = free_energy(m, head, X).mean().item()

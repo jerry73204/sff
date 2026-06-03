@@ -40,20 +40,13 @@ def _layer_inputs(model, x):
 # (the naive logsigmoid(Gr-theta)+logsigmoid(theta-Gn)) inflates BOTH goodnesses with the weight
 # norm and actually *shrinks* the real/noised manifold gap. We instead use a *paired* denoising
 # contrast on the per-sample difference Gr-Gn, where the common weight-norm inflation cancels and
-# the gap reliably opens. The quadratic goodness yields small gradients at the configured lr, so we
-# amplify the effective step by _DENOISE_STEP (calibrated to open the gap within the configured
-# epoch budget across seeds, with weights staying bounded).
-_DENOISE_STEP = 30.0
-
-
+# the gap reliably opens.
 def train_early_denoise(model, X, cfg):
     """gen-FF early objective: per layer, squared-norm goodness G=mean(h^2) higher on real than on
-    noised input, via the paired denoising contrast -logsigmoid(Gr-Gn). theta is kept as a target
-    margin in cfg for API stability. Forward-only, layer-local (each layer trains from its own
-    detached input)."""
+    noised input, via the paired denoising contrast -logsigmoid(Gr-Gn). theta is kept in cfg for API
+    stability (unused). Forward-only, layer-local (each layer trains from its own detached input)."""
     g = torch.Generator().manual_seed(cfg["seed"])
-    cfg.get("theta")  # target margin, retained for API stability
-    sig, lr = cfg["sigma"], cfg["lr"] * _DENOISE_STEP
+    sig, lr = cfg["sigma"], cfg["lr"]
     for _ in range(cfg["epochs"]):
         idx = torch.randperm(len(X), generator=g)
         for i in range(0, len(X) - cfg["batch"] + 1, cfg["batch"]):
