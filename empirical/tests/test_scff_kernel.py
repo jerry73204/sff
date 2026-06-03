@@ -28,3 +28,17 @@ def test_kernel_matches_reference():
         s_ref, g_ref = signal_ref(z, zp, 0.5)
         assert torch.allclose(s_ker, s_ref, atol=1e-4), (B, C, (s_ker - s_ref).abs().max())
         assert abs(float(g_ker) - float(g_ref)) < 1e-2 * max(1.0, abs(float(g_ref)))
+
+
+@cuda_only
+def test_gpu_train_step_improves_goodness():
+    from gpu_arch import ConvSCFF, scff_local_step, block_goodness
+    torch.manual_seed(0)
+    m = ConvSCFF(C=32, n_blocks=3, arch="residual", alpha=0.2).cuda()
+    x = torch.randn(64, 3, 32, 32, device="cuda")
+    xp = x + 0.1 * torch.randn_like(x)
+    g0 = block_goodness(m, x, xp, tau=0.5)
+    for _ in range(20):
+        scff_local_step(m, x, xp, tau=0.5, lr=0.1)
+    g1 = block_goodness(m, x, xp, tau=0.5)
+    assert g1 > g0
