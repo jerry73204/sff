@@ -13,13 +13,13 @@ dependencies = [
 ]
 
 [tool.uv]
-# CPU-only torch (sizes here are CPU-fine; CUDA optional, see design.md 2.4)
+# CUDA (cu128) torch for RTX 5090 / sm_120 (see design.md 2.4)
 [tool.uv.sources]
-torch = { index = "pytorch-cpu" }
+torch = { index = "pytorch-cu128" }
 
 [[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.pytest.ini_options]
