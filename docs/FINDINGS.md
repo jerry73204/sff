@@ -207,6 +207,15 @@ Measured (`experiments/memory_footprint.py`, via `saved_tensors_hooks`, n=256, B
 (`O(B·n)`, depth-independent).** Residual adds a tiny constant and stays flat. So residual-SCFF
 keeps the FF memory win *and* the alignment fix.
 
+**Honest comparison (vs the right baseline).** The `51×` is vs *naive* BP. The fair competitors are
+**reversible nets (RevNet, depth-independent activation memory) and gradient checkpointing
+(`O(√L)`)** — they also beat naive BP's `O(L)`. SCFF's distinct advantage over *those* is not raw
+bytes but that it has **no backward pass, no invertibility constraint, and no recompute**: it gets
+`O(B·n)` forward-only, layer-parallel, weight-transport-free, where RevNet still backprops (extra
+compute + numerical drift + architectural constraints) and checkpointing pays recompute. That is the
+claim to make — not "51× smaller" alone. (See `docs/RELATED_WORK.md`: InfoPro <40% BP memory, DGL
++38% samples/GPU, RevNet depth-independent — the local-learning memory lineage.)
+
 IO/communication (asymptotic): forward-only SCFF needs **1× activation traffic** (vs BP's 2×),
 **no weight transport** (no `Wᵀ` backward path), and is **layer-parallel** (no backward-lock) with
 purely local updates. Among the gap-closers, **only residual preserves this profile** — aux-depth
@@ -220,22 +229,49 @@ Does the gradient-alignment win produce a *trained-model* win? Measured (`experi
 task_accuracy.py`, MNIST 6000/1000, MLP width 256 / `L=4` ReLU, self-supervised contrastive
 pretraining → linear probe on concatenated block features):
 
+Measured over **5 seeds** (`experiments/multiseed.py`, mean ± std):
+
 | method | probe acc | alignment `A` |
 |---|---|---|
-| supervised-BP (cross-entropy, upper bound) | **0.944** | — |
-| **residual-SCFF** (forward-only, local) | **0.887** | **1.00** |
-| plain-SCFF (forward-only, local) | 0.596 | 0.70 |
-| BP-contrastive (end-to-end, same objective) | 0.276 | 0.49 |
+| supervised-BP (cross-entropy, upper bound) | **0.941 ± 0.008** | — |
+| plain local-supervised (per-block CE, local) | 0.909 ± 0.007 | — |
+| **residual-SCFF** (forward-only, local) | **0.891 ± 0.009** | **0.997 ± 0.001** |
+| plain-SCFF (forward-only, local) | 0.568 ± **0.054** | 0.649 ± 0.040 |
 
-**The alignment fix buys +29 accuracy points** (residual-SCFF 0.887 vs plain-SCFF 0.596), and
-`A` tracks accuracy across methods (1.0→0.89, 0.70→0.60, 0.49→0.28). Residual-SCFF — forward-only,
-local, `51×` less memory — lands **within ~6 points of supervised BP** (0.944). So the
-gradient-alignment characterization is not just a proxy: closing the cross-layer gap (residual)
-closes most of the real-data accuracy gap too.
+- **Alignment fix: +0.323 ± 0.051** (residual-SCFF − plain-SCFF) — large and robust; `A` tracks
+  accuracy across methods.
+- **Price of locality: +0.031 ± 0.005** (supervised-BP − best BP-free) — only **~3 points**, tightly
+  determined. Best BP-free recipe = plain local-supervised (0.909).
+- residual-SCFF `A = 0.997 ± 0.001` (rock-stable); **plain-SCFF std 0.054** — residual is both more
+  accurate *and* far more reproducible (plain SCFF is unstable run-to-run).
 
-Caveats: single seed; MNIST + MLP scale (not CIFAR/conv); the BP-contrastive baseline is weak
-(the contrastive objective trained end-to-end with the concat-probe undertrains — supervised-BP
-is the meaningful upper bound); probe on concatenated features.
+So the gradient-alignment characterization is not just a proxy: closing the cross-layer gap closes
+most of the real-data accuracy gap, leaving a tight ~3-point residue (the proven price of locality).
+Caveats: MNIST + MLP scale (not yet CIFAR/conv); probe on concatenated features. (Single-seed caveat
+lifted.)
+
+### Depth scaling — residual bounds the gap as depth grows (path A)
+
+The theory says the cross-layer drift `δ` is a *depth* effect — the downstream transport `M`
+compounds anisotropy over `L−ℓ` layers, so alignment should decay with depth in plain nets and stay
+flat in residual nets (`M ≈ I` each block). Measured at init (`experiments/depth_scaling.py`, mean
+alignment `A` and downstream condition number `κ`, `α = 1/√L`):
+
+| `L` | `A` plain | `A` residual | `κ` plain | `κ` residual |
+|---|---|---|---|---|
+| 4 | 0.519 | 0.942 | 10.1 | 1.71 |
+| 8 | 0.390 | 0.918 | 48.0 | 1.95 |
+| 16 | 0.342 | 0.920 | 102 | 2.41 |
+| 32 | 0.159 | 0.921 | — | 3.84 |
+| 64 | 0.141 | 0.922 | — | — |
+
+**Plain alignment decays `0.519 → 0.141` over `L = 4 → 64`; residual stays flat (`0.942 → 0.922`,
+drop 0.02).** Residual *bounds* the depth gap — the theory's depth prediction, confirmed directly.
+`κ` corroborates the info bound: residual holds the downstream condition number low and bounded
+(`1.7 → 3.8`) while plain explodes (`10 → 102`), and the `(√κ−1)²/(κ+1)` floor tracks the `A` drop.
+This is exactly where BP's activation memory explodes (`O(L·B·n)`); residual local nets keep `A`
+flat *and* memory flat — the practical case for going deep. (Plain `κ` at `L ≥ 32` is unreliable —
+deep plain nets rank-collapse at init, eigenvalues underflow — but the `A` trend is robust.)
 
 ### The alignment cosine is necessary but NOT sufficient (diagnostic)
 

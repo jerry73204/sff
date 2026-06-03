@@ -22,12 +22,15 @@ import math
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from arch import ArchMLP
+from arch import ArchMLP, downstream_jacobian
 import arch as A
-from gradients import global_grad, alignment_cosine
+from model import normalize
+from gradients import global_grad, alignment_cosine, signal
+import metrics
 
 DEPTHS = [4, 8, 16, 32, 64]
 WIDTH, B, TAU, DIN, NOISE = 128, 32, 0.5, 64, 0.3
+KAPPA_MAX_L = 32   # downstream Jacobian at l=0 is O(L)-deep per-sample; cap cost
 
 
 def mean_A(model, x, xp, tau):
@@ -37,13 +40,29 @@ def mean_A(model, x, xp, tau):
     return sum(vals) / len(vals)
 
 
+def kappa_at(model, x, xp, tau, layer=0):
+    """Condition number kappa and anisotropy of the downstream stretch S = (MᵀM)^{1/2} restricted
+    to the contrastive subspace V, at `layer` (deepest transport l=0). Directly instruments the
+    info-bound floor (√κ−1)²/(κ+1). Returns (kappa, aniso, d_V)."""
+    ys, ysp = model(x), model(xp)
+    z, zp = normalize(ys[layer + 1]), normalize(ysp[layer + 1])
+    s, _ = signal(z, zp.detach(), tau)
+    V, dV = metrics.contrastive_subspace(s)          # [n, dV] basis in layer-rep space
+    M = downstream_jacobian(model, x, layer)          # [n_L, n]
+    MV = M @ V                                        # [n_L, dV]
+    G = MV.t() @ MV                                   # stretch² on V, [dV, dV]
+    ev = torch.linalg.eigvalsh(G).clamp_min(1e-12)
+    kappa = float((ev.max() / ev.min()).sqrt())
+    return kappa, metrics.aniso(M, V), dV
+
+
 def main():
     torch.set_default_dtype(torch.float64)
     g = torch.Generator().manual_seed(0)
     x = torch.randn(B, DIN, generator=g)
     xp = x + NOISE * torch.randn(B, DIN, generator=g)
     print(f"width={WIDTH} B={B} tau={TAU}  alpha=1/sqrt(L)  (mean alignment A at init vs depth)\n")
-    print(f"  {'L':>3}  {'A_plain':>8}  {'A_resid':>8}  {'alpha':>6}")
+    print(f"  {'L':>3}  {'A_plain':>8}  {'A_resid':>8}  {'kap_pl':>7}  {'kap_re':>7}  {'alpha':>6}")
     rows = []
     for L in DEPTHS:
         mp = ArchMLP(DIN, WIDTH, L, "plain", "relu", seed=0)
@@ -51,8 +70,14 @@ def main():
         alpha = 1.0 / math.sqrt(L)
         mr = ArchMLP(DIN, WIDTH, L, "residual", "relu", alpha=alpha, seed=0)
         Ar = mean_A(mr, x, xp, TAU)
-        rows.append((L, Ap, Ar, alpha))
-        print(f"  {L:>3}  {Ap:>8.3f}  {Ar:>8.3f}  {alpha:>6.3f}", flush=True)
+        if L <= KAPPA_MAX_L:
+            kp = kappa_at(mp, x, xp, TAU)[0]
+            kr = kappa_at(mr, x, xp, TAU)[0]
+            ks = f"{kp:>7.2f}  {kr:>7.2f}"
+        else:
+            kp = kr = float("nan"); ks = f"{'skip':>7}  {'skip':>7}"
+        rows.append((L, Ap, Ar, alpha, kp, kr))
+        print(f"  {L:>3}  {Ap:>8.3f}  {Ar:>8.3f}  {ks}  {alpha:>6.3f}", flush=True)
 
     print("\n=== VERDICT ===")
     p0, pN = rows[0][1], rows[-1][1]
