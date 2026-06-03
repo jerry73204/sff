@@ -160,11 +160,17 @@ def main():
     for name, a, al in rows:
         extra = f"  A={al:.3f}" if al == al else ""
         print(f"  {name:14s} probe={a:.4f}{extra}")
-    print(f"\nalignment fix (residual-SCFF - plain-SCFF): {acc['residual-SCFF']-acc['plain-SCFF']:+.4f}")
-    print(f"gap to supervised-BP: {acc['supervised-BP']-acc['residual-SCFF']:+.4f}")
-    print("=> " + ("conv: alignment fix TRANSFERS (residual >> plain, near BP)"
-                   if acc['residual-SCFF'] - acc['plain-SCFF'] > 0.03 else
-                   "conv: alignment fix weaker than MLP -- investigate"))
+    fix = acc['residual-SCFF'] - acc['plain-SCFF']
+    bp_gap = acc['supervised-BP'] - acc['residual-SCFF']
+    print(f"\nalignment fix (residual-SCFF - plain-SCFF): {fix:+.4f}")
+    print(f"gap to supervised-BP: {bp_gap:+.4f}")
+    if fix > 0.03 and bp_gap < 0.05:
+        verdict = "conv: alignment fix transfers AND near BP (replicates MLP)"
+    elif fix > 0.03:
+        verdict = "conv: alignment fix transfers DIRECTIONALLY but stays far from BP (attenuated)"
+    else:
+        verdict = "conv: alignment fix weak/absent -- investigate"
+    print("=> " + verdict)
 
 
 if __name__ == "__main__":

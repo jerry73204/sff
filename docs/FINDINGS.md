@@ -273,6 +273,38 @@ This is exactly where BP's activation memory explodes (`O(L·B·n)`); residual l
 flat *and* memory flat — the practical case for going deep. (Plain `κ` at `L ≥ 32` is unreliable —
 deep plain nets rank-collapse at init, eigenvalues underflow — but the `A` trend is robust.)
 
+### Convolutional / CIFAR-10 — the fix transfers, but attenuated (honest)
+
+The credibility bar is convolutions on real images. `convarch.ConvSCFF` is a conv port (stem
+`32→16` stride-2, then `L=4` conv blocks at fixed `C=64`/spatial size; residual identity branch
+dimension-matched; per-block rep = global-avg-pooled, L2-normalized feature map; layer-local
+stop-grad). CIFAR-10 (`experiments/cifar_conv.py`, 8000/2000, 8 epochs, noise+flip aug):
+
+| method | probe acc | `A` |
+|---|---|---|
+| supervised-BP (upper bound) | 0.525 | — |
+| residual-SCFF | 0.330 | 0.731 |
+| plain-SCFF | 0.268 | 0.126 |
+
+**The alignment fix transfers *directionally* but is substantially weaker than MLP/MNIST:**
+
+- residual raises `A` `0.13→0.73` and probe `+0.06` — same sign as MLP, so the mechanism is real on
+  conv. Note plain `A` *collapsed* `0.49→0.13` from init under training (the dynamical anisotropy
+  growth, seen again).
+- **But residual conv `A` = 0.73, not the MLP's ~1.0.** The conv downstream transport acts on
+  *pooled* reps; the feature-map residual does not make that pooled transport as near-identity, so
+  the fix is only partial.
+- **Gap to BP is large** (0.33 vs 0.53, −0.20) vs MNIST's tight −0.03. **The near-BP result is
+  MNIST/MLP-specific — it does NOT replicate at conv/CIFAR with this setup.**
+
+Honest caveats: weak setup (BP only 0.525 — tiny 4-block/16²/8k/8-epoch, noise+flip aug only;
+real conv-SCFF reaches ~80% with proper depth/width/aug per `RELATED_WORK.md`), which both
+underpowers every method and compresses differences. **Open questions:** why is residual conv `A`
+only 0.73 (try `α=1/√L`, residual on the pooled-rep path, or measuring the pooled-transport `κ`
+directly); and does a stronger setup (more depth/data/epochs, real augmentation, matching SCFF's
+conv backbone) restore the near-BP gap? The MLP claims stand; **the conv claim is, so far, only a
+weak directional transfer — not parity.**
+
 ### The alignment cosine is necessary but NOT sufficient (diagnostic)
 
 We probed the hypothesized *alignment ↔ expressivity* tension — that small-`α` residual aligns by
