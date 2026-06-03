@@ -62,3 +62,36 @@ def scff_local_step(model, x, xp, tau, lr):
         with torch.no_grad():
             for p, gp in zip(model.blocks[l].parameters(), grads):
                 p.add_(lr * gp)                          # + : ascend (s_perp is +dg/dz direction)
+
+def block_goodness_spatial(model, x, xp, tau):
+    """Sum of per-image, per-location InfoNCE goodness over all blocks (for tests/logging)."""
+    from cuda.scff_ext import scff_signal
+    ys, ysp = model(x), model(xp)
+    tot = 0.0
+    for l in range(model.n_blocks):
+        z = per_location_tokens(ys[l + 1]); zp = per_location_tokens(ysp[l + 1])
+        for b in range(z.shape[0]):
+            _, g = scff_signal(z[b].contiguous(), zp[b].contiguous(), tau)
+            tot += float(g)
+    return tot
+
+def scff_local_step_spatial(model, x, xp, tau, lr):
+    """One forward-only local update per block, with PER-LOCATION InfoNCE (tokens = spatial
+    locations, in-image negatives). The scff_signal kernel runs per image over its H*W locations;
+    the resulting per-location tangent signal is backpropped through THIS block only."""
+    from cuda.scff_ext import scff_signal
+    with torch.no_grad():
+        ys = [y.detach() for y in model(x)]
+        ysp = [y.detach() for y in model(xp)]
+    for l in range(model.n_blocks):
+        out = model.apply_block(ys[l], l)                 # differentiable wrt block l only
+        z = per_location_tokens(out)                      # [B, HW, C], requires grad
+        zp = per_location_tokens(ysp[l + 1]).detach()     # [B, HW, C]
+        s_perp = torch.empty_like(z)
+        for b in range(z.shape[0]):
+            sb, _ = scff_signal(z[b].detach().contiguous(), zp[b].contiguous(), tau)  # [HW, C]
+            s_perp[b] = sb
+        grads = torch.autograd.grad(z, model.blocks[l].parameters(), grad_outputs=s_perp)
+        with torch.no_grad():
+            for p, gp in zip(model.blocks[l].parameters(), grads):
+                p.add_(lr * gp)                           # ascend (s_perp is +dg/dz)

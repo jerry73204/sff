@@ -40,6 +40,34 @@ def test_per_location_tokens_shape_and_norm():
 
 
 @cuda_only
+def test_spatial_step_improves_goodness():
+    from gpu_arch import ConvSCFF, scff_local_step_spatial, block_goodness_spatial, augment_appearance
+    torch.manual_seed(0)
+    m = ConvSCFF(C=32, n_blocks=3, arch="residual", alpha=0.2).cuda()
+    x = torch.randn(16, 3, 32, 32, device="cuda")
+    xp = augment_appearance(x, 0.06)
+    g0 = block_goodness_spatial(m, x, xp, tau=0.5)
+    for _ in range(20):
+        scff_local_step_spatial(m, x, xp, tau=0.5, lr=0.1)
+    g1 = block_goodness_spatial(m, x, xp, tau=0.5)
+    assert g1 > g0
+
+
+@cuda_only
+def test_spatial_step_is_layer_local():
+    from gpu_arch import ConvSCFF, per_location_tokens
+    torch.manual_seed(0)
+    m = ConvSCFF(C=32, n_blocks=3, arch="residual", alpha=0.2).cuda()
+    x = torch.randn(8, 3, 32, 32, device="cuda")
+    ys = [y.detach() for y in m(x)]
+    out = m.apply_block(ys[0], 0)
+    z = per_location_tokens(out)
+    g = z.pow(2).sum()
+    grads = torch.autograd.grad(g, list(m.blocks[1].parameters()), allow_unused=True)
+    assert all(gp is None for gp in grads)
+
+
+@cuda_only
 def test_gpu_train_step_improves_goodness():
     from gpu_arch import ConvSCFF, scff_local_step, block_goodness
     torch.manual_seed(0)
