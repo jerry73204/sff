@@ -339,6 +339,31 @@ this implementation does not realize. The `51×` asymptotic claim stands only fo
 schedule; the naive forward-only loop measured here does not deliver it. A real memory win requires
 implementing the streaming update.
 
+### Per-location objective — partial, and a negative-scheme bug (honest)
+
+We diagnosed the conv bottleneck as **global-average-pooling in the local objective** (it gives the
+filters no spatial gradient and projects the transport into a rank-deficient space, blowing up `κ`;
+see the geometric analysis below). The published SCFF computes conv goodness *per spatial location*.
+So we moved the objective off the pool to per-location InfoNCE (`experiments/cifar_spatial.py`,
+residual conv `L=8`, CIFAR-10 20k):
+
+| method | probe acc |
+|---|---|
+| supervised-BP | 0.578 |
+| **per-location-SCFF** | **0.361** |
+| global-pool-SCFF | 0.324 |
+
+Per-location helped only **+0.038** — it did **not** close the gap to BP (0.217 remains). Diagnosis:
+the *negative scheme* was wrong, not the spatial premise. We used **in-image negatives** (each
+location contrasted against *other locations of the same image*), which rewards each location being
+**distinct from its siblings** — spatial distinctness, which is orthogonal (even adverse) to a good
+*pooled* classification feature, and the linear probe pools the features away. The actual SCFF
+paper's per-location goodness contrasts **images, not locations** (positive = same image at that
+location, negative = a *different image* at that location) — per-location *instance discrimination*,
+whose features pool into a classification-useful rep. **Next step: cross-image per-location negatives**
+(flip the kernel loop to per-location over the `B` images → `[B,C]` per location), the deferred
+extension in the spatial spec. The spatial diagnosis stands; the in-image negative choice was the bug.
+
 ### The alignment cosine is necessary but NOT sufficient (diagnostic)
 
 We probed the hypothesized *alignment ↔ expressivity* tension — that small-`α` residual aligns by
