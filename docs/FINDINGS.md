@@ -353,16 +353,31 @@ residual conv `L=8`, CIFAR-10 20k):
 | **per-location-SCFF** | **0.361** |
 | global-pool-SCFF | 0.324 |
 
-Per-location helped only **+0.038** — it did **not** close the gap to BP (0.217 remains). Diagnosis:
-the *negative scheme* was wrong, not the spatial premise. We used **in-image negatives** (each
-location contrasted against *other locations of the same image*), which rewards each location being
-**distinct from its siblings** — spatial distinctness, which is orthogonal (even adverse) to a good
-*pooled* classification feature, and the linear probe pools the features away. The actual SCFF
-paper's per-location goodness contrasts **images, not locations** (positive = same image at that
-location, negative = a *different image* at that location) — per-location *instance discrimination*,
-whose features pool into a classification-useful rep. **Next step: cross-image per-location negatives**
-(flip the kernel loop to per-location over the `B` images → `[B,C]` per location), the deferred
-extension in the spatial spec. The spatial diagnosis stands; the in-image negative choice was the bug.
+We then tested **both** negative schemes (`experiments/cifar_spatial.py`, residual conv `L=8`, 20k):
+
+| method | probe acc |
+|---|---|
+| supervised-BP | 0.591 |
+| per-location, **cross-image** negatives | 0.376 |
+| per-location, **in-image** negatives | 0.369 |
+| global-pool-SCFF | 0.336 |
+
+**Cross-image (the SCFF-paper scheme: per-location instance discrimination, positive = same image /
+negative = other image at that location) barely beats in-image (+0.007).** Both give the *same*
+modest **~+0.04** over global-pool, and the **~0.22 gap to BP survives**. So the negative scheme was
+*not* the bottleneck, and moving the objective off the pool — either way — is a real but *small*
+gain, not the fix.
+
+**Honest conclusion: the conv gap is the price of locality, not the pooling.** The spatial-objective
+diagnosis was *partially* right (a consistent +0.04) but not dominant. The remaining ~0.22 is exactly
+what the theory predicts — **the price of locality grows with task difficulty**: MLP/MNIST ~3pt,
+conv/CIFAR (hard) ~22pt. The info bound is the mechanism: hard tasks demand expressive (anisotropic,
+high-`κ`) features, and a transport-blind local rule cannot align through that, *regardless of where
+the objective lives spatially*. (BP itself reaches only 0.59 in this underpowered narrow net; the
+SCFF→BP gap is the locality price at this difficulty.) This is theory-consistent, and it is the
+motivation for the **FF+BP hybrid** (`docs/superpowers/specs/2026-06-04-ff-bp-hybrid-design.md`):
+if global credit assignment is irreducibly needed on hard tasks, put BP exactly where it matters
+(the tail) and FF the rest.
 
 ### The alignment cosine is necessary but NOT sufficient (diagnostic)
 

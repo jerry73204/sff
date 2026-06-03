@@ -1,0 +1,16 @@
+CIFAR-10 train=20000 test=5000 residual conv C=64 L=8 on NVIDIA GeForce RTX 5090
+
+  supervised-BP        acc=0.5910
+  global-pool-SCFF     acc=0.3356
+  per-location-inimg   acc=0.3694
+  per-location-ximg    acc=0.3760
+
+=== VERDICT (CIFAR-10 linear probe, residual conv) ===
+  supervised-BP          0.5910
+  per-location-ximg      0.3760   (cross-image negatives)
+  per-location-inimg     0.3694   (in-image negatives)
+  global-pool-SCFF       0.3356
+
+cross-image fix (ximg - global-pool): +0.0404
+remaining gap to BP: +0.2150
+=> cross-image per-location did not clearly beat global-pool -- investigate
