@@ -338,9 +338,40 @@ map is an isometry — the two pull against each other. Backprop is exempt (it a
 pullback `M^T` through any stretch); local rules cannot, so they pay. Residual does not remove the
 tension — it **bounds** how far learning can push `M` from identity. The only BP-free levers are
 therefore transport-fixers: residual (free, structural — done) or preconditioning by `S` (needs
-`M^T M` = downstream info = weight transport — forbidden). One untried variant: a **local isometry
-penalty** `‖J^l⊤J^l − cI‖` on each block's own Jacobian (local, BP-free, the soft sibling of
-residual) — expected to incur the same expressivity tax.
+`M^T M` = downstream info = weight transport — forbidden).
+
+### Idea D — local isometry penalty (the soft sibling of residual) is dominated
+
+We tested the one untried transport-fixer: a **local, BP-free** penalty keeping each block's *own*
+Jacobian isotropic — penalize `Var_v ‖J_i v‖²` over random probe directions `v` (isometry ⟺
+`‖J_i v‖²` direction-independent, scale-free; `experiments/iso_penalty.py`), added to each block's
+goodness ascent. MNIST, plain arch, λ-sweep:
+
+| method | probe | `A` |
+|---|---|---|
+| plain-SCFF (λ=0) | 0.577 | 0.608 |
+| plain-SCFF + isoD (λ=1, best) | 0.644 | 0.616 |
+| residual-SCFF | **0.885** | **0.998** |
+
+isoD bumps accuracy +0.07 but **does not even raise alignment** (0.608→0.616) and lands far below
+residual (+0.31, A=1.0); large λ *hurts* (over-regularized collapse). **Dominated.** Why, geometrically:
+
+- **Isotropy ≠ identity.** The penalty drives `M^T M → cI` (isometric *up to a rotation* `Q`).
+  Residual gives `M ≈ I` — it pins **both** the stretch `S≈I` and the rotation `Q≈I`. The penalty
+  controls `S` only; the leftover `Q` still scrambles the layer-ℓ↔output signal correspondence.
+- **Wrong subspace.** `k=8` random probes in the `n=256` space mostly miss the `d_V=32` contrastive
+  subspace where isotropy matters.
+- **Soft vs structural.** The penalty *fights* the goodness gradient (which grows aniso) and cannot
+  win without a λ large enough to destroy the features.
+
+**Revision arc closed.** Every alternative lever is ruled out — kernel drift / negative re-modeling
+(geometrically optimal, ≈0 effect), transported/EMA positives (positive modeling isn't the defect),
+objective (+1–2 pt), aux-depth (dominated), Fisher / DFA / forward-gradient / LayerNorm (fail),
+local isometry penalty (dominated). **The residual architecture is the unique cheap BP-free fix**:
+it is the only mechanism that makes the inter-layer transport an isometry — and the *right* one,
+`M≈I` — without downstream information. The residual **~4–5 pt** gap to backprop is the irreducible
+**price of locality**: learning must distort the representation metric, and only backprop's exact
+pullback `M^T` is exempt.
 
 ## The honest headline
 
