@@ -1,0 +1,13 @@
+data=MNIST train=8000 test=2000 d_in=784 C=10 width=256 L=4
+
+  supervised-BP      acc=0.9490  ECE=0.0402  OOD-AUROC=0.945  (1 fwd)
+  SCFF+probe         acc=0.8240  ECE=0.0935  (probe, 1 fwd)
+  SCFF-feat+head     acc=0.8170  ECE=0.0888  OOD-AUROC=0.997  (1 fwd)
+  denoise-feat+head  acc=0.8530  ECE=0.0480  OOD-AUROC=0.975  (1 fwd)
+
+=== VERDICT ===
+  accuracy:  BP 0.949 | denoise+head 0.853 | SCFF+head 0.817 | SCFF+probe 0.824
+  head vs probe (a3-a2): -0.0070   denoise vs in-batch (a4-a3): +0.0360
+  calibration (lower ECE better): probe 0.094 vs heads 0.089/0.048
+  OOD-AUROC (higher better): heads 0.997/0.975
+all arms classify in 1 forward; early training forward-only (<= BP cost).

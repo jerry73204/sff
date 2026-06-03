@@ -540,6 +540,43 @@ it is the only mechanism that makes the inter-layer transport an isometry — an
 **price of locality**: learning must distort the representation metric, and only backprop's exact
 pullback `M^T` is exempt.
 
+## gen-FF — the generative-energy reframe beats SCFF (MNIST)
+
+Diagnosing SCFF's weaknesses (weak in-batch negatives, label-blind objective, separate probe) led to
+**gen-FF**: read the forward-only goodness as a joint `(x,y)` energy (`p(x,y) ∝ e^{−E}`, `E=−G`),
+train early layers by *denoising* contrast (goodness high on real `x`, low on noised `x̃` — models the
+data manifold instead of in-batch instance identity), and classify with a **one-forward joint-energy
+head** (`E(x,y)=−head[y]`, `argmax_y`, no probe) trained by cross-entropy + a cheap EBM term (real vs
+noised features, **no MCMC**). Design + cost analysis: `docs/ideas/2026-06-04-ff-generative-ebm.md`.
+4-arm MNIST test (`experiments/genff_mnist.py`, 8000/2000, MLP width 256 `L=4`, all forward-only,
+all classify in **1 forward**):
+
+| method | acc | ECE ↓ | OOD-AUROC ↑ |
+|---|---|---|---|
+| supervised-BP (ceiling) | 0.949 | 0.040 | 0.945 |
+| **gen-FF (denoise-feat + energy head)** | **0.853** | **0.048** | **0.975** |
+| SCFF + linear probe (our prior method) | 0.824 | 0.094 | — |
+| SCFF-feat + energy head | 0.817 | 0.089 | 0.997 |
+
+Three clean results:
+
+1. **The energy head alone ≈ the probe on accuracy** (−0.007). The head's value is *not* accuracy.
+2. **Denoising-manifold features beat in-batch SCFF features by +3.6 pts** (0.853 vs 0.817) — *this is
+   the accuracy win*. Modeling `p(x)` (real-vs-noised) gives better features than instance
+   discrimination.
+3. **Net: gen-FF = 0.853, +2.9 pts over SCFF+probe (0.824)**, and the **best-calibrated forward-only
+   method** (ECE 0.048 ≈ BP's 0.040, vs the probe's 0.094), with **strong OOD detection** (0.975–0.997,
+   which a linear probe cannot do at all) — all at **1-forward, forward-only ≤ BP cost.**
+
+So the generative reframe pays off, and the two ingredients contribute differently: **accuracy from
+the denoising features, robustness (calibration + OOD) from the energy head.** This is the first
+direction that *improves* on SCFF rather than failing to (Fisher/DFA/forward-grad/iso-penalty) or
+merely matching it. It also escapes the transport/`κ` machinery entirely (each layer has a
+self-contained generative objective — no align-to-BP, no isometry requirement). Caveats: MNIST/MLP
+only (the conv price-of-locality is untested here); the head's accuracy parity with the probe means
+the *accuracy* gain rides on the features, not the joint-energy classification per se; the rich
+Langevin/generation mode (label-in-input) is unbuilt and would cost more than BP (`C×` inference).
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but
