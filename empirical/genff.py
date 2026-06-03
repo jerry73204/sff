@@ -87,3 +87,48 @@ def train_early_inbatch(model, X, cfg):
                 grad = torch.autograd.grad(gd, model.W[l])[0]
                 with torch.no_grad():
                     model.W[l].add_(lr * grad)
+
+
+class EnergyHead(nn.Module):
+    """Linear map features -> C class-goodnesses. Energy E(x,y) = -head(feat)[y];
+    p(y|x)=softmax(head); free energy = -logsumexp_y head."""
+    def __init__(self, feat_dim, n_classes):
+        super().__init__()
+        self.lin = nn.Linear(feat_dim, n_classes)
+
+    def forward(self, feat):
+        return self.lin(feat)
+
+
+def train_head(model, head, X, y, cfg):
+    """Train the head only (backbone frozen; features detached). Loss = cross-entropy (discriminative)
+    + lam * EBM term that pushes real-feature free-energy up, noised-feature down (models p(x))."""
+    opt = torch.optim.Adam(head.parameters(), lr=cfg["lr"])
+    ce = nn.CrossEntropyLoss()
+    g = torch.Generator().manual_seed(cfg["seed"])
+    sig, lam = cfg["sigma"], cfg["lam"]
+    for _ in range(cfg["epochs"]):
+        idx = torch.randperm(len(X), generator=g)
+        for i in range(0, len(X) - cfg["batch"] + 1, cfg["batch"]):
+            b = idx[i:i + cfg["batch"]]
+            xb, yb = X[b], y[b]
+            with torch.no_grad():
+                fr = model.features(xb)
+                fn = model.features(xb + sig * torch.randn(xb.shape, generator=g))
+            logits = head(fr)
+            lse_r = torch.logsumexp(logits, dim=1)
+            lse_n = torch.logsumexp(head(fn), dim=1)
+            loss = ce(logits, yb) + lam * F.softplus(lse_n - lse_r).mean()
+            opt.zero_grad(); loss.backward(); opt.step()
+
+
+def predict(model, head, X):
+    """argmax_y head(feat(x)) — one forward."""
+    with torch.no_grad():
+        return head(model.features(X)).argmax(1)
+
+
+def free_energy(model, head, X):
+    """-logsumexp_y head(feat(x)); high = off-manifold (OOD)."""
+    with torch.no_grad():
+        return -torch.logsumexp(head(model.features(X)), dim=1)
