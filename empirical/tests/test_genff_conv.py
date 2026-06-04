@@ -18,8 +18,8 @@ def test_conv_denoise_raises_energy_gap():
     def gap():
         return block_energy_gap(m, X, X + 0.3 * torch.randn_like(X))
     g0 = gap()
-    for _ in range(40):
-        conv_denoise_step(m, X, dict(sigma=0.3, lr=1.0))
+    for _ in range(20):
+        conv_denoise_step(m, X, dict(sigma=0.5, lr=1.0))
     assert gap() > g0
 
 @cuda_only

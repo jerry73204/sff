@@ -3,30 +3,40 @@ Spec: docs/superpowers/specs/2026-06-04-genff-conv-gpu-design.md."""
 import torch, torch.nn as nn, torch.nn.functional as F
 
 
+def _conv_branch(model, y_in, l):
+    """The learnable part the block ADDS: relu(conv_l(y_in)). For a residual block the energy must be
+    measured here, NOT on the residual output y + alpha*relu(conv(y)) — the latter is dominated by the
+    passthrough y (which carries no gradient to conv_l), so the conv-weight signal would be ~O(alpha)
+    tiny. Measuring the conv branch gives the filters a strong real-vs-noised gradient."""
+    return F.relu(model.blocks[l](y_in))
+
+
 def conv_denoise_step(model, x, cfg):
-    """One forward-only local update per block: per-location energy G_{h,w}=mean_C h^2 trained HIGH
-    on real x, LOW on noised x via the paired contrast -logsigmoid(G_real - G_noised). Layer-local
-    (block input detached). Both G_real and G_noised carry grad wrt block l."""
+    """One forward-only local update per block: per-location energy G_{h,w}=mean_C (relu(conv y))^2
+    of the CONV BRANCH trained HIGH on real x, LOW on noised x via the paired contrast
+    -logsigmoid(G_real - G_noised). Layer-local (block input detached)."""
     sig, lr = cfg["sigma"], cfg["lr"]
     xn = x + sig * torch.randn_like(x)
     with torch.no_grad():
         ys = [y.detach() for y in model(x)]
         ysn = [y.detach() for y in model(xn)]
     for l in range(model.n_blocks):
-        Gr = model.apply_block(ys[l], l).pow(2).mean(1)
-        Gn = model.apply_block(ysn[l], l).pow(2).mean(1)
+        Gr = _conv_branch(model, ys[l], l).pow(2).mean(1)     # [B,H,W] conv-branch per-location energy
+        Gn = _conv_branch(model, ysn[l], l).pow(2).mean(1)
         loss = -F.logsigmoid(Gr - Gn).mean()
         grads = torch.autograd.grad(loss, model.blocks[l].parameters())
         with torch.no_grad():
             for p, g in zip(model.blocks[l].parameters(), grads):
-                p.add_(-lr * g)
+                p.add_(-lr * g)                               # descend the paired-contrast loss
 
 
 def block_energy_gap(model, x, xn):
-    """Sum over blocks of (mean real energy - mean noised energy). Rises as denoising trains."""
+    """Sum over blocks of (mean real - mean noised) CONV-BRANCH energy (what the objective optimizes).
+    Rises as denoising trains."""
     ys, ysn = model(x), model(xn)
-    return sum((ys[l].pow(2).mean() - ysn[l].pow(2).mean()).item()
-               for l in range(1, model.n_blocks + 1))
+    return sum((_conv_branch(model, ys[l], l).pow(2).mean()
+                - _conv_branch(model, ysn[l], l).pow(2).mean()).item()
+               for l in range(model.n_blocks))
 
 
 def train_head_conv(model, head, X, y, cfg):
