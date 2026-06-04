@@ -40,19 +40,29 @@ def hc():
     return dict(epochs=CFG["head_epochs"], batch=CFG["batch"], lr=CFG["lr_head"],
                lam=CFG["lam"], sigma=CFG["sigma"], seed=CFG["seed"])
 
+def feats(m, X, bs=2000):
+    """Batched feature extraction (forwarding all 50k at once OOMs the conv net)."""
+    out = []
+    with torch.no_grad():
+        for i in range(0, len(X), bs):
+            out.append(m.features(X[i:i + bs]))
+    return torch.cat(out)
+
 def probe(m, Xtr, ytr, Xte, yte):
     from sklearn.linear_model import LogisticRegression
-    Ftr = m.features(Xtr).detach().cpu().numpy(); Fte = m.features(Xte).detach().cpu().numpy()
+    Ftr = feats(m, Xtr).cpu().numpy(); Fte = feats(m, Xte).cpu().numpy()
     clf = LogisticRegression(max_iter=200).fit(Ftr, ytr.cpu().numpy())
     acc = float((clf.predict(Fte) == yte.cpu().numpy()).mean())
     return acc, ece(torch.tensor(clf.predict_proba(Fte)), yte.cpu())
 
 def head_eval(m, head, Xte, yte, Xood):
     with torch.no_grad():
-        logits = head(m.features(Xte))
+        logits = head(feats(m, Xte))
         acc = float((logits.argmax(1) == yte).float().mean())
         e = ece(torch.softmax(logits, 1).cpu(), yte.cpu())
-    au = ood_auroc(free_energy(m, head, Xte), free_energy(m, head, Xood))
+        fe_in = -torch.logsumexp(head(feats(m, Xte)), dim=1)
+        fe_ood = -torch.logsumexp(head(feats(m, Xood)), dim=1)
+    au = ood_auroc(fe_in, fe_ood)
     return acc, e, au
 
 def peakMB():
