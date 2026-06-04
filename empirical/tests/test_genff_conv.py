@@ -31,3 +31,18 @@ def test_conv_denoise_is_layer_local():
     g = m.apply_block(ys[0], 0).pow(2).mean()
     grads = torch.autograd.grad(g, list(m.blocks[1].parameters()), allow_unused=True)
     assert all(gp is None for gp in grads)
+
+
+def test_augment_batch_shape_and_finite():
+    from gpu_pipeline import augment_batch
+    x = torch.randn(8, 3, 32, 32)
+    a = augment_batch(x)
+    assert a.shape == (8, 3, 32, 32) and torch.isfinite(a).all()
+
+def test_ece_and_auroc():
+    from gpu_pipeline import ece, ood_auroc
+    probs = torch.tensor([[0.9, 0.1], [0.2, 0.8], [0.6, 0.4]])
+    y = torch.tensor([0, 1, 1])
+    assert 0.0 <= ece(probs, y) <= 1.0
+    au = ood_auroc(torch.tensor([0.0, 0.1, 0.2]), torch.tensor([1.0, 1.1, 1.2]))
+    assert au == 1.0
