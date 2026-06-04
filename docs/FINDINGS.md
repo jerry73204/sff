@@ -577,6 +577,38 @@ only (the conv price-of-locality is untested here); the head's accuracy parity w
 the *accuracy* gain rides on the features, not the joint-energy classification per se; the rich
 Langevin/generation mode (label-in-input) is unbuilt and would cost more than BP (`C×` inference).
 
+### Conv gen-FF (GPU) — the MNIST win does NOT transfer; the conv gap is the price of locality
+
+We built a GPU pipeline + conv gen-FF (per-location denoising **conv-branch** energy, forward-only) and
+ran it on CIFAR-10 (`experiments/genff_cifar.py`, residual conv `C=128`/`L=6`, full 50k, RTX 5090):
+
+| method | acc | ECE ↓ | OOD-AUROC ↑ | peak MB |
+|---|---|---|---|---|
+| supervised-BP | 0.744 | 0.015 | 0.911 | 3279 |
+| SCFF-conv + probe | 0.354 | 0.038 | — | 1215 |
+| SCFF-conv + energy head | 0.325 | 0.035 | 0.999 | — |
+| gen-FF-conv (denoise + head) | 0.291 | 0.085 | 1.000 | 1238 |
+
+**The headline fails: gen-FF-conv (0.291) does *not* beat SCFF (0.354) — it is −6 pts worse.** The
+denoising-energy objective that won on MNIST (+3.6 pt) *reverses* on conv. Cause = the predicted
+weak-init-signal: random conv filters barely separate real from noised input, so the denoising
+objective cannot bootstrap the filters. **The MNIST gen-FF win was MLP-specific.**
+
+Two genuine positives fall out anyway:
+1. **The energy head's OOD detection is near-perfect on conv** (0.999–1.000, beating BP's 0.911) — the
+   generative-classifier robustness payoff *transfers* even when accuracy does not.
+2. **Forward-only uses ~2.7× less memory than BP** at conv depth `L=6` (1215 vs 3279 MB) — the memory
+   advantage *does* materialize at conv depth (BP holds the deep backward graph; per-block forward-only
+   does not — unlike the MLP/shallow case where it tied).
+
+**The deep conclusion: the conv gap is the *price of locality*, not the objective.** Every forward-only
+conv method we tried — SCFF (0.35), per-location SCFF (0.36–0.38), gen-FF (0.29) — hits the *same*
+~0.3 wall against BP's ~0.74. The objective formulation does not move it; global credit assignment is
+irreducibly needed on hard conv, exactly as the information lower bound predicts (the price of locality
+grows with task difficulty). **This is the strongest case for the FF+BP hybrid** (`docs/ideas/
+2026-06-04-ff-bp-hybrid.md`): pure local learning cannot cross the conv wall regardless of how clever
+the local objective is — the remaining route is to put BP exactly where the credit assignment is needed.
+
 ## The honest headline
 
 Local SCFF aligns with BP only up to a cross-layer term `δ`. Width fixes the isotropy half but

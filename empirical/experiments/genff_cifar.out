@@ -1,0 +1,23 @@
+CIFAR-10 train=50000 test=10000 conv C=128 L=6 on NVIDIA GeForce RTX 5090
+
+  supervised-BP        acc=0.7440 ECE=0.0152 OOD=0.911 peakMB=3279 (1fwd)
+/home/aeon/repos/sff/empirical/.venv/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:599: ConvergenceWarning: lbfgs failed to converge after 200 iteration(s) (status=1):
+STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+
+Increase the number of iterations to improve the convergence (max_iter=200).
+You might also want to scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_result(
+  SCFF-conv+probe      acc=0.3539 ECE=0.0377 peakMB=1215 (probe,1fwd)
+  SCFF-conv+head       acc=0.3252 ECE=0.0354 OOD=0.999 (1fwd)
+  gen-FF-conv          acc=0.2906 ECE=0.0853 OOD=1.000 peakMB=1238 (1fwd)
+
+=== VERDICT ===
+  acc:  BP 0.744 | gen-FF 0.291 | SCFF+head 0.325 | SCFF+probe 0.354
+  gen-FF vs SCFF-wall (a4-a2): -0.0633
+  denoise vs in-batch (a4-a3): -0.0346   head vs probe (a3-a2): -0.0287
+  ECE: probe 0.038 | heads 0.035/0.085   OOD: heads 0.999/1.000
+  peak MB: BP 3279 | SCFF 1215 | gen-FF 1238
+=> gen-FF ~= SCFF on conv: the conv gap is deeper than the objective
