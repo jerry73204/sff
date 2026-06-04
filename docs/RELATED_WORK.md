@@ -85,3 +85,15 @@ reversible+parallel local). None give an alignment-at-depth bound.
 5. **Instrument the bound:** measure alignment `A` and downstream condition number `κ` per layer vs
    depth, ±residual. Residual should flatten the `A`-vs-depth curve; the `(√κ−1)²/(κ+1)` floor should
    predict the residual gap. (Template: Moskovitz 2018 per-layer angle-vs-depth.) — `depth_scaling.py`.
+
+## Biological-plausibility motivation (not technical related-work)
+
+- **Raugel, Seitzer, Szafraniec, Vo, Rapin, Labatut, Bojanowski, Wyart, King — "Misalignment Between
+  Backpropagation and the Hierarchy of Brain Responses to Images"** (2026, arXiv:2605.28693, Meta FAIR
+  + neuroscience). Maps backprop *gradients* onto fMRI/MEG during vision: forward activations track the
+  cortical hierarchy, but the **backpropagated gradients' spatial/temporal organization diverges** from
+  any biologically-plausible backprop. Independent brain-data evidence that the cortex does not do
+  backprop-style credit assignment. *Relevance:* motivation only (not a method, not our local-vs-BP
+  alignment metric) — a recent, high-profile citation for *why* forward-only / local learning is worth
+  pursuing, complementing the weight-transport (Crick 1989) and NGRAD arguments. File under intro
+  motivation, not technical comparison.
