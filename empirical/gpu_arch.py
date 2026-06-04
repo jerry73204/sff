@@ -36,6 +36,11 @@ class ConvSCFF(nn.Module):
     def pooled(self, y):
         return _pooled(y)
 
+    def features(self, x):
+        """Concat of per-block global-avg-pooled, L2-normalized reps: [B, C*n_blocks]."""
+        ys = self.forward(x)
+        return torch.cat([_pooled(ys[l]) for l in range(1, self.n_blocks + 1)], dim=1)
+
 def block_goodness(model, x, xp, tau):
     """Sum of per-block local goodness (kernel's scalar), for tests/logging."""
     from cuda.scff_ext import scff_signal
